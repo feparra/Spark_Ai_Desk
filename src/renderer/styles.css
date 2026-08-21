@@ -242,13 +242,12 @@ body {
 }
 
 .spark-media {
-  width: 128px;
-  height: 128px;
+  width: 130px;
+  height: 130px;
   object-fit: contain;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.65));
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.45));
   pointer-events: none;
   image-rendering: pixelated;
-  border-radius: 14px;
 }
 
 /* Sombra flotante debajo del personaje */

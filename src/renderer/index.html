@@ -32,9 +32,10 @@
   <!-- ⚡ Sección del Avatar (Astro / Spark) -->
   <div class="avatar-section" id="avatarSection" title="Doble clic para cambiar personaje | Arrastra para mover">
     <div class="spark-avatar-container" id="sparkAvatarContainer">
-      <!-- Soporte dual GIF y Video MP4 -->
-      <img id="sparkImg" class="spark-media" src="../../assets/gifs/spark_calm.gif" alt="Avatar" style="display: none;">
-      <video id="sparkVideo" class="spark-media" autoplay loop muted playsinline src="../../assets/astro/Astro_8 bit_calm.mp4"></video>
+      <!-- Elementos multimedia y Canvas con eliminación de fondo negro en tiempo real -->
+      <canvas id="sparkCanvas" class="spark-media" width="140" height="140"></canvas>
+      <video id="sparkVideo" muted playsinline loop style="display: none;"></video>
+      <img id="sparkImg" style="display: none;" alt="Spark Avatar">
     </div>
     <div class="spark-shadow"></div>
     

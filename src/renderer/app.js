@@ -42,27 +42,77 @@ const AGENT_COLORS = {
 };
 
 // Elementos del DOM
+const sparkCanvas = document.getElementById('sparkCanvas');
+const ctx = sparkCanvas.getContext('2d', { willReadFrequently: true });
 const sparkImg = document.getElementById('sparkImg');
 const sparkVideo = document.getElementById('sparkVideo');
 const speechBubbleContainer = document.getElementById('speechBubbleContainer');
 
+// =========================================================
+// 🪄 MOTOR DE ELIMINACIÓN DE FONDO NEGRO (CHROMA-KEY EN TIEMPO REAL)
+// =========================================================
+let isRendering = false;
+
+function startCanvasRenderLoop() {
+  if (isRendering) return;
+  isRendering = true;
+
+  function renderFrame() {
+    const width = sparkCanvas.width;
+    const height = sparkCanvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const activeSkin = SKINS[currentSkin] || SKINS.astro;
+
+    if (activeSkin.type === 'video' && sparkVideo.readyState >= 2 && !sparkVideo.paused) {
+      ctx.drawImage(sparkVideo, 0, 0, width, height);
+      removeBlackBackground(width, height);
+    } else if (activeSkin.type === 'image' && sparkImg.complete && sparkImg.naturalWidth > 0) {
+      ctx.drawImage(sparkImg, 0, 0, width, height);
+      removeBlackBackground(width, height);
+    }
+
+    requestAnimationFrame(renderFrame);
+  }
+
+  requestAnimationFrame(renderFrame);
+}
+
+function removeBlackBackground(w, h) {
+  try {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const len = data.length;
+
+    // Umbral de negro: todo pixel con RGB muy oscuro se vuelve 100% transparente
+    const threshold = 35;
+
+    for (let i = 0; i < len; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      if (r < threshold && g < threshold && b < threshold) {
+        data[i + 3] = 0; // Transparencia total
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    // Canvas context fallback
+  }
+}
+
 sparkVideo.onerror = (e) => {
   console.error('❌ Error cargando video:', sparkVideo.src);
-  sparkVideo.style.display = 'none';
-  sparkImg.style.display = 'block';
-  sparkImg.src = '../../assets/gifs/spark_calm.gif';
-};
-
-sparkImg.onerror = (e) => {
-  console.error('❌ Error cargando imagen GIF:', sparkImg.src);
+  currentSkin = 'spark';
+  updateState({ state: currentCharacterState, skin: 'spark' });
 };
 
 sparkVideo.onloadeddata = () => {
   console.log('🎬 Video de Astro cargado y listo para reproducir:', sparkVideo.src);
-};
-
-sparkImg.onload = () => {
-  console.log('🖼️ GIF de Spark cargado correctamente:', sparkImg.src);
+  sparkVideo.play().catch(e => console.log('Autoplay play error:', e));
 };
 const agentBadge = document.getElementById('agentBadge');
 const agentNameText = document.getElementById('agentNameText');
@@ -94,8 +144,6 @@ function updateState(stateData) {
   const assetUrl = activeSkin.assets[state] || activeSkin.assets.calm;
 
   if (activeSkin.type === 'video') {
-    sparkImg.style.display = 'none';
-    sparkVideo.style.display = 'block';
     if (currentAssetLoaded !== assetUrl) {
       currentAssetLoaded = assetUrl;
       sparkVideo.src = assetUrl;
@@ -103,11 +151,13 @@ function updateState(stateData) {
       sparkVideo.play().catch(e => console.log('Autoplay handled:', e));
     }
   } else {
-    sparkVideo.style.display = 'none';
-    sparkImg.style.display = 'block';
-    currentAssetLoaded = assetUrl;
-    sparkImg.src = assetUrl;
+    if (currentAssetLoaded !== assetUrl) {
+      currentAssetLoaded = assetUrl;
+      sparkImg.src = assetUrl;
+    }
   }
+
+  startCanvasRenderLoop();
 
   // 2. Color del Agente
   applyAgentTheme(agent);
