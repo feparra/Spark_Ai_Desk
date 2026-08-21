@@ -1,0 +1,327 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-bubble: rgba(18, 22, 34, 0.88);
+  --border-bubble: rgba(255, 255, 255, 0.14);
+  --bubble-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.2);
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  
+  /* Agent Colors */
+  --agent-spark: #38bdf8;
+  --agent-claude: #f97316;
+  --agent-antigravity: #818cf8;
+  --agent-hermes: #ef4444;
+  --agent-openclaw: #06b6d4;
+  --agent-codex: #10b981;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px;
+}
+
+/* =========================================================
+   SPEECH BUBBLE (Bocadillo Interactivo estilo Clippy Moderno)
+   ========================================================= */
+.speech-bubble-container {
+  width: 100%;
+  max-width: 340px;
+  position: relative;
+  margin-bottom: 14px;
+  animation: bubblePop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.speech-bubble-container.hidden {
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+  pointer-events: none;
+}
+
+.speech-bubble {
+  background: var(--bg-bubble);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border-bubble);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: var(--bubble-shadow);
+  color: var(--text-main);
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+/* Cola del bocadillo apuntando hacia abajo (al personaje) */
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  right: 52px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--bg-bubble);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Header del bocadillo */
+.bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--agent-spark);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  transition: all 0.3s ease;
+}
+
+.agent-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulseDot 1.5s infinite;
+}
+
+.btn-close-bubble {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.btn-close-bubble:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bubble-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.bubble-message {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.bubble-code {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #a5f3fc;
+  max-height: 70px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+/* Botones de acción */
+.bubble-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-action {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   AVATAR / PERSONAJE SPARK
+   ========================================================= */
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  cursor: grab;
+  -webkit-app-region: drag;
+}
+
+.avatar-section:active {
+  cursor: grabbing;
+}
+
+.spark-avatar-container {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.spark-avatar-container:hover {
+  transform: scale(1.04);
+}
+
+.spark-media {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.65));
+  pointer-events: none;
+  image-rendering: pixelated;
+  border-radius: 14px;
+}
+
+/* Sombra flotante debajo del personaje */
+.spark-shadow {
+  width: 80px;
+  height: 10px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5) 0%, rgba(0,0,0,0) 70%);
+  border-radius: 50%;
+  margin-top: -8px;
+  animation: shadowFloat 2.5s ease-in-out infinite alternate;
+}
+
+/* Floating status pill debajo del personaje */
+.status-pill {
+  margin-top: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
+}
+
+.status-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.status-pill-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+
+/* =========================================================
+   ANIMACIONES
+   ========================================================= */
+@keyframes bubblePop {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulseDot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes shadowFloat {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.35;
+  }
+}

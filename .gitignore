@@ -1,0 +1,5 @@
+node_modules/
+.spark_desktop_runtime/
+*.log
+.DS_Store
+Thumbs.db

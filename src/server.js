@@ -1,0 +1,219 @@
+if (!module.paths.includes('C:/Users/ferna/.spark_desktop_runtime/node_modules')) {
+  module.paths.push('C:/Users/ferna/.spark_desktop_runtime/node_modules');
+}
+
+const http = require('http');
+const url = require('url');
+let WebSocket;
+try {
+  WebSocket = require('ws');
+} catch (e) {
+  console.log('WS fallback');
+}
+
+class SparkServer {
+  constructor(port = 7890) {
+    this.port = port;
+    this.clients = new Set();
+    this.pendingResolvers = new Map(); // id -> callback
+    this.currentState = {
+      state: 'calm',
+      agent: 'spark',
+      message: 'Spark está descansando...',
+      lastUpdate: Date.now()
+    };
+
+    this.server = http.createServer((req, res) => this.handleHttp(req, res));
+    if (WebSocket) {
+      this.wss = new WebSocket.Server({ server: this.server });
+      this.setupWebSockets();
+    }
+  }
+
+  handleHttp(req, res) {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
+
+    if (req.method === 'GET' && pathname === '/api/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, data: this.currentState }));
+      return;
+    }
+
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        let json = {};
+        try {
+          if (body) json = JSON.parse(body);
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Invalid JSON' }));
+          return;
+        }
+
+        if (pathname === '/api/skin') {
+          const { skin = 'astro' } = json;
+          this.broadcast({ type: 'set_skin', skin });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, skin }));
+          return;
+        }
+
+        if (pathname === '/api/state') {
+          const { state = 'calm', agent = 'spark', message = '', skin } = json;
+          this.updateState({ state, agent, message, skin });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, state, agent, message, skin }));
+          return;
+        }
+
+        if (pathname === '/api/notify') {
+          const id = json.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+          const agent = json.agent || 'spark';
+          const state = json.state || 'waiting';
+          const title = json.title || 'Atención requerida';
+          const message = json.message || '';
+          const code = json.code || '';
+          const actions = json.actions || ['Aprobar', 'Rechazar'];
+          const timeout = json.timeout || 0;
+          const sound = json.sound !== false;
+
+          const payload = { id, agent, state, title, message, code, actions, timeout, sound, timestamp: Date.now() };
+
+          this.broadcast({ type: 'notification', data: payload });
+          this.updateState({ state, agent, message: title || message });
+
+          const isWaiting = parsedUrl.query.wait === 'true' || json.waitForResponse;
+          if (isWaiting) {
+            const timeoutMs = (timeout > 0 ? timeout : 120) * 1000;
+            const timer = setTimeout(() => {
+              if (this.pendingResolvers.has(id)) {
+                this.pendingResolvers.delete(id);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'timeout', action: null }));
+              }
+            }, timeoutMs);
+
+            this.pendingResolvers.set(id, (action) => {
+              clearTimeout(timer);
+              this.pendingResolvers.delete(id);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: true, id, action }));
+            });
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, id, status: 'dispatched' }));
+          }
+          return;
+        }
+
+        if (pathname === '/api/action') {
+          const { id, action } = json;
+          this.handleActionSelected(id, action);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, id, action }));
+          return;
+        }
+
+        if (pathname === '/api/dismiss') {
+          this.broadcast({ type: 'dismiss' });
+          this.updateState({ state: 'calm', agent: 'spark', message: 'En reposo' });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Not found' }));
+      });
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: 'Not found' }));
+  }
+
+  setupWebSockets() {
+    this.wss.on('connection', (ws) => {
+      this.clients.add(ws);
+      ws.send(JSON.stringify({ type: 'init', data: this.currentState }));
+
+      ws.on('message', (message) => {
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed.type === 'action_clicked') {
+            this.handleActionSelected(parsed.id, parsed.action);
+          } else if (parsed.type === 'update_state') {
+            this.updateState(parsed.data);
+          }
+        } catch (err) {
+          console.error('Error parseando mensaje WS:', err);
+        }
+      });
+
+      ws.on('close', () => {
+        this.clients.delete(ws);
+      });
+    });
+  }
+
+  handleActionSelected(id, action) {
+    if (this.pendingResolvers.has(id)) {
+      const resolver = this.pendingResolvers.get(id);
+      resolver(action);
+    }
+    this.broadcast({
+      type: 'action_resolved',
+      id,
+      action,
+      timestamp: Date.now()
+    });
+  }
+
+  updateState(stateData) {
+    this.currentState = { ...this.currentState, ...stateData, lastUpdate: Date.now() };
+    this.broadcast({ type: 'state_changed', data: this.currentState });
+  }
+
+  broadcast(messageObj) {
+    const jsonStr = JSON.stringify(messageObj);
+    for (const client of this.clients) {
+      if (client.readyState === (WebSocket ? WebSocket.OPEN : 1)) {
+        client.send(jsonStr);
+      }
+    }
+  }
+
+  start() {
+    return new Promise((resolve) => {
+      this.server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`⚠️ El puerto ${this.port} ya está en uso por otra instancia.`);
+        } else {
+          console.error('Error en servidor HTTP:', err);
+        }
+        resolve(this.port);
+      });
+
+      this.server.listen(this.port, () => {
+        console.log(`⚡ Spark Server escuchando en http://localhost:${this.port}`);
+        resolve(this.port);
+      });
+    });
+  }
+}
+
+module.exports = SparkServer;

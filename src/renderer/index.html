@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spark & Astro - Desktop Companion</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- 💬 Bocadillo de Diálogo Interactivo (Speech Bubble) -->
+  <div id="speechBubbleContainer" class="speech-bubble-container hidden">
+    <div class="speech-bubble">
+      <div class="bubble-header">
+        <div id="agentBadge" class="agent-badge">
+          <span class="dot"></span>
+          <span id="agentNameText">Spark</span>
+        </div>
+        <button id="btnCloseBubble" class="btn-close-bubble" title="Cerrar">✕</button>
+      </div>
+
+      <div id="bubbleTitle" class="bubble-title">¡Hola Fernando!</div>
+      <div id="bubbleMessage" class="bubble-message">Estoy listo para acompañarte y monitorear tus agentes.</div>
+      <div id="bubbleCode" class="bubble-code" style="display: none;"></div>
+
+      <div id="bubbleActions" class="bubble-actions">
+        <!-- Los botones dinámicos se insertan aquí -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ⚡ Sección del Avatar (Astro / Spark) -->
+  <div class="avatar-section" id="avatarSection" title="Doble clic para cambiar personaje | Arrastra para mover">
+    <div class="spark-avatar-container" id="sparkAvatarContainer">
+      <!-- Soporte dual GIF y Video MP4 -->
+      <img id="sparkImg" class="spark-media" src="../../assets/gifs/spark_calm.gif" alt="Avatar" style="display: none;">
+      <video id="sparkVideo" class="spark-media" autoplay loop muted playsinline src="../../assets/astro/Astro_8 bit_calm.mp4"></video>
+    </div>
+    <div class="spark-shadow"></div>
+    
+    <!-- Status Pill -->
+    <div class="status-pill" id="statusPill">
+      <div class="status-pill-dot" id="statusPillDot"></div>
+      <span class="status-pill-text" id="statusPillText">Astro Listo</span>
+    </div>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
