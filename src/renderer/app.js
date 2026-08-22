@@ -49,9 +49,14 @@ const sparkVideo = document.getElementById('sparkVideo');
 const speechBubbleContainer = document.getElementById('speechBubbleContainer');
 
 // =========================================================
-// 🪄 MOTOR DE ELIMINACIÓN DE FONDO NEGRO (CHROMA-KEY EN TIEMPO REAL)
+// 🪄 MOTOR INTELIGENTE DE BORDE EXTERIOR (FLOOD-FILL TRANSPARENCY)
+// Preserva el visor negro, ojos, sombras y detalles oscuros interiores del personaje.
 // =========================================================
 let isRendering = false;
+
+// Reutilizar arrays para máximo rendimiento sin garbage collection
+let visitedBuffer = null;
+let queueBuffer = null;
 
 function startCanvasRenderLoop() {
   if (isRendering) return;
@@ -67,10 +72,10 @@ function startCanvasRenderLoop() {
 
     if (activeSkin.type === 'video' && sparkVideo.readyState >= 2 && !sparkVideo.paused) {
       ctx.drawImage(sparkVideo, 0, 0, width, height);
-      removeBlackBackground(width, height);
+      removeOuterBackgroundFloodFill(width, height);
     } else if (activeSkin.type === 'image' && sparkImg.complete && sparkImg.naturalWidth > 0) {
       ctx.drawImage(sparkImg, 0, 0, width, height);
-      removeBlackBackground(width, height);
+      removeOuterBackgroundFloodFill(width, height);
     }
 
     requestAnimationFrame(renderFrame);
@@ -79,28 +84,77 @@ function startCanvasRenderLoop() {
   requestAnimationFrame(renderFrame);
 }
 
-function removeBlackBackground(w, h) {
+function removeOuterBackgroundFloodFill(w, h) {
   try {
+    const totalPixels = w * h;
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
-    const len = data.length;
 
-    // Umbral de negro: todo pixel con RGB muy oscuro se vuelve 100% transparente
-    const threshold = 35;
+    if (!visitedBuffer || visitedBuffer.length !== totalPixels) {
+      visitedBuffer = new Uint8Array(totalPixels);
+      queueBuffer = new Int32Array(totalPixels);
+    } else {
+      visitedBuffer.fill(0);
+    }
 
-    for (let i = 0; i < len; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+    // Comprobar si un píxel es color de fondo oscuro exterior
+    const isBgPixel = (idx) => {
+      const r = data[idx * 4];
+      const g = data[idx * 4 + 1];
+      const b = data[idx * 4 + 2];
+      return (r < 25 && g < 25 && b < 25);
+    };
 
-      if (r < threshold && g < threshold && b < threshold) {
-        data[i + 3] = 0; // Transparencia total
+    let qLen = 0;
+
+    // 1. Sembrar la cola con todos los píxeles de los 4 bordes exteriores
+    for (let x = 0; x < w; x++) {
+      const top = x;
+      const btm = (h - 1) * w + x;
+      if (isBgPixel(top)) { visitedBuffer[top] = 1; queueBuffer[qLen++] = top; }
+      if (isBgPixel(btm) && !visitedBuffer[btm]) { visitedBuffer[btm] = 1; queueBuffer[qLen++] = btm; }
+    }
+    for (let y = 0; y < h; y++) {
+      const lft = y * w;
+      const rgt = y * w + (w - 1);
+      if (isBgPixel(lft) && !visitedBuffer[lft]) { visitedBuffer[lft] = 1; queueBuffer[qLen++] = lft; }
+      if (isBgPixel(rgt) && !visitedBuffer[rgt]) { visitedBuffer[rgt] = 1; queueBuffer[qLen++] = rgt; }
+    }
+
+    // 2. Flood Fill BFS solo hacia el fondo exterior contiguo
+    let head = 0;
+    while (head < qLen) {
+      const curr = queueBuffer[head++];
+      data[curr * 4 + 3] = 0; // Transparencia SOLO para el fondo exterior
+
+      const cx = curr % w;
+      const cy = (curr / w) | 0;
+
+      // Vecino Izquierda
+      if (cx > 0) {
+        const n = curr - 1;
+        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
+      }
+      // Vecino Derecha
+      if (cx < w - 1) {
+        const n = curr + 1;
+        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
+      }
+      // Vecino Arriba
+      if (cy > 0) {
+        const n = curr - w;
+        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
+      }
+      // Vecino Abajo
+      if (cy < h - 1) {
+        const n = curr + w;
+        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
       }
     }
 
     ctx.putImageData(imgData, 0, 0);
   } catch (e) {
-    // Canvas context fallback
+    // Fallback de contexto
   }
 }
 
