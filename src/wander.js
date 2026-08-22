@@ -6,7 +6,7 @@ class WanderEngine {
   constructor(mainWindow, sparkServer) {
     this.mainWindow = mainWindow;
     this.sparkServer = sparkServer;
-    this.enabled = true;
+    this.enabled = false; // Disabled by default for rock-solid 0% CPU/GPU performance
     this.isPausedByAgent = false;
     
     this.currentPos = { x: 0, y: 0 };
@@ -17,7 +17,7 @@ class WanderEngine {
     this.moveInterval = null;
     this.idleTimer = null;
     
-    this.speed = 1.6;
+    this.speed = 2.0;
   }
 
   start() {
@@ -29,8 +29,10 @@ class WanderEngine {
       this.currentPos = { x: 100, y: 100 };
     }
 
-    this.scheduleNextWalk(15000); // 15 seconds initial rest
-    this.startMoveLoop();
+    if (this.enabled) {
+      this.scheduleNextWalk(15000);
+      this.startMoveLoop();
+    }
   }
 
   stop() {

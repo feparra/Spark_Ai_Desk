@@ -68,7 +68,7 @@ function buildContextMenu() {
     {
       label: '🚶 Autonomous Roam Mode (Multi-Monitor)',
       type: 'checkbox',
-      checked: wanderEngine ? wanderEngine.enabled : true,
+      checked: wanderEngine ? wanderEngine.enabled : false,
       click: (menuItem) => {
         if (wanderEngine) {
           wanderEngine.toggle(menuItem.checked);
@@ -294,7 +294,7 @@ function createSparkWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.center();
     mainWindow.show();
-    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+    mainWindow.setAlwaysOnTop(true, 'floating');
     mainWindow.moveTop();
     mainWindow.focus();
     console.log('✅ Spark companion window shown and focused.');
