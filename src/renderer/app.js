@@ -1,6 +1,17 @@
 // ⚡ Spark, Astro & Dr. Octopus UI Controller (Ultra-low CPU & GPU Native)
 
 const SKINS = {
+  capy: {
+    name: 'Capy',
+    assets: {
+      calm: '../../assets/capy/calm.gif',
+      working: '../../assets/capy/working.gif',
+      waiting: '../../assets/capy/waiting.gif',
+      connecting: '../../assets/capy/waiting.gif',
+      done: '../../assets/capy/done.gif',
+      error: '../../assets/capy/error.gif'
+    }
+  },
   dr_octopus: {
     name: 'Dr. Octopus',
     assets: {
@@ -36,11 +47,12 @@ const SKINS = {
   }
 };
 
-let currentSkin = 'dr_octopus';
+let currentSkin = 'capy';
 let currentCharacterState = 'calm';
 let currentAssetLoaded = '';
 
 const AGENT_COLORS = {
+  capy: { bg: 'rgba(217, 119, 6, 0.15)', text: '#d97706', border: 'rgba(217, 119, 6, 0.3)' },
   spark: { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.3)' },
   astro: { bg: 'rgba(249, 115, 22, 0.15)', text: '#fb923c', border: 'rgba(249, 115, 22, 0.3)' },
   dr_octopus: { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },
@@ -286,17 +298,17 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Initial initialization with Dr. Octopus
-updateState({ state: 'calm', agent: 'dr_octopus', skin: 'dr_octopus', message: 'Dr. Octopus Ready' });
+// Initial initialization with Capy
+updateState({ state: 'calm', agent: 'capy', skin: 'capy', message: 'Capy Ready' });
 
 // Startup welcome bubble
 setTimeout(() => {
   showNotification({
     id: 'startup_welcome',
-    agent: 'dr_octopus',
+    agent: 'capy',
     state: 'calm',
-    title: 'Dr. Octopus is active! 🐙',
-    message: "I'm floating on your screen. You can drag me anywhere.\n\n💡 Double-click me to switch between Dr. Octopus, Astro, and Spark.",
+    title: 'Capy is active! ☕🦫',
+    message: "I'm your chill executive assistant. Coffee in hand, ready for tasks!\n\n💡 Double-click me to switch between Capy, Dr. Octopus, Astro, and Spark.",
     actions: ['Got it!'],
     timeout: 10,
     sound: true

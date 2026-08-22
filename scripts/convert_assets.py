@@ -62,7 +62,15 @@ def convert_mp4_to_transparent_gif(mp4_path, gif_path, target_size=160, max_fram
 def main():
     base_dir = r"g:\My Drive\04_Desarrollo_AI\Spark_Desktop\assets"
     
-    # 1. Convert Dr. Octopus
+    # 1. Convert Capy
+    capy_dir = os.path.join(base_dir, "capy")
+    if os.path.exists(capy_dir):
+        for state in ["calm", "working", "waiting", "done", "error"]:
+            mp4 = os.path.join(capy_dir, f"{state}.mp4")
+            gif = os.path.join(capy_dir, f"{state}.gif")
+            convert_mp4_to_transparent_gif(mp4, gif, target_size=150, max_frames=45, threshold=20)
+
+    # 2. Convert Dr. Octopus
     dr_dir = os.path.join(base_dir, "dr_octopus")
     for state in ["calm", "working", "waiting", "done", "error"]:
         mp4 = os.path.join(dr_dir, f"{state}.mp4")

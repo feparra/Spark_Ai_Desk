@@ -120,7 +120,13 @@ function setupTray() {
       label: '🎭 Switch Character',
       submenu: [
         {
-          label: '🐙 Dr. Octopus (New!)',
+          label: '🦫 Capy (Executive - New!)',
+          click: () => {
+            if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'capy' });
+          }
+        },
+        {
+          label: '🐙 Dr. Octopus',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'dr_octopus' });
           }
