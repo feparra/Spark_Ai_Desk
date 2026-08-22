@@ -95,10 +95,22 @@ function startCanvasRenderLoop() {
     const activeSkin = SKINS[currentSkin] || SKINS.astro;
 
     if (activeSkin.type === 'video' && sparkVideo.readyState >= 2 && !sparkVideo.paused) {
-      ctx.drawImage(sparkVideo, 0, 0, width, height);
+      const vw = sparkVideo.videoWidth || 1;
+      const vh = sparkVideo.videoHeight || 1;
+      const cropSize = Math.min(vw, vh);
+      const sx = (vw - cropSize) / 2;
+      const sy = (vh - cropSize) / 2;
+
+      ctx.drawImage(sparkVideo, sx, sy, cropSize, cropSize, 0, 0, width, height);
       removeOuterBackgroundFloodFill(width, height);
     } else if (activeSkin.type === 'image' && sparkImg.complete && sparkImg.naturalWidth > 0) {
-      ctx.drawImage(sparkImg, 0, 0, width, height);
+      const iw = sparkImg.naturalWidth;
+      const ih = sparkImg.naturalHeight;
+      const cropSize = Math.min(iw, ih);
+      const sx = (iw - cropSize) / 2;
+      const sy = (ih - cropSize) / 2;
+
+      ctx.drawImage(sparkImg, sx, sy, cropSize, cropSize, 0, 0, width, height);
       removeOuterBackgroundFloodFill(width, height);
     }
 

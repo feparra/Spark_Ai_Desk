@@ -26,7 +26,8 @@ class WanderEngine {
     const [x, y] = this.mainWindow.getPosition();
     this.currentPos = { x, y };
 
-    this.scheduleNextWalk(3000); // Start first walk after 3 seconds
+    // Permanecer quieto al inicio para que el usuario lo vea claramente
+    this.scheduleNextWalk(15000); // 15 segundos de reposo inicial
     this.startMoveLoop();
   }
 
