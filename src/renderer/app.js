@@ -391,6 +391,15 @@ if (window.sparkBridge) {
       hideBubble();
     } else if (eventData.type === 'set_skin') {
       updateState({ state: currentCharacterState, skin: eventData.skin });
+    } else if (eventData.type === 'facing_changed') {
+      const avatarContainer = document.getElementById('sparkAvatarContainer');
+      if (avatarContainer) {
+        if (eventData.direction === 'left') {
+          avatarContainer.classList.add('facing-left');
+        } else {
+          avatarContainer.classList.remove('facing-left');
+        }
+      }
     }
   });
 }

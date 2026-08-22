@@ -234,11 +234,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.3s ease;
 }
 
 .spark-avatar-container:hover {
   transform: scale(1.04);
+}
+
+.spark-avatar-container.facing-left {
+  transform: scaleX(-1);
+}
+
+.spark-avatar-container.facing-left:hover {
+  transform: scaleX(-1) scale(1.04);
 }
 
 .spark-media {

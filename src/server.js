@@ -64,6 +64,14 @@ class SparkServer {
           return;
         }
 
+        if (pathname === '/api/wander') {
+          const { enabled = true } = json;
+          this.broadcast({ type: 'wander_toggle', enabled });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, enabled }));
+          return;
+        }
+
         if (pathname === '/api/skin') {
           const { skin = 'astro' } = json;
           this.broadcast({ type: 'set_skin', skin });
