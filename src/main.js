@@ -120,7 +120,13 @@ function setupTray() {
       label: '🎭 Switch Character',
       submenu: [
         {
-          label: '🧑‍🚀 Astro 8-Bit (Recommended)',
+          label: '🐙 Dr. Octopus (New!)',
+          click: () => {
+            if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'dr_octopus' });
+          }
+        },
+        {
+          label: '🧑‍🚀 Astro 8-Bit',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'astro' });
           }

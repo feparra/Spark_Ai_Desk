@@ -1,6 +1,18 @@
 // ⚡ Spark & Astro Desktop UI Controller
 
 const SKINS = {
+  dr_octopus: {
+    name: 'Dr. Octopus',
+    type: 'video',
+    assets: {
+      calm: '../../assets/dr_octopus/calm.mp4',
+      working: '../../assets/dr_octopus/working.mp4',
+      waiting: '../../assets/dr_octopus/waiting.mp4',
+      connecting: '../../assets/dr_octopus/waiting.mp4',
+      done: '../../assets/dr_octopus/done.mp4',
+      error: '../../assets/dr_octopus/error.mp4'
+    }
+  },
   astro: {
     name: 'Astro 8-Bit',
     type: 'video',
@@ -27,13 +39,14 @@ const SKINS = {
   }
 };
 
-let currentSkin = 'astro';
+let currentSkin = 'dr_octopus';
 let currentCharacterState = 'calm';
 let currentAssetLoaded = '';
 
 const AGENT_COLORS = {
   spark: { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.3)' },
   astro: { bg: 'rgba(249, 115, 22, 0.15)', text: '#fb923c', border: 'rgba(249, 115, 22, 0.3)' },
+  dr_octopus: { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },
   claude: { bg: 'rgba(249, 115, 22, 0.15)', text: '#f97316', border: 'rgba(249, 115, 22, 0.3)' },
   antigravity: { bg: 'rgba(129, 140, 248, 0.15)', text: '#818cf8', border: 'rgba(129, 140, 248, 0.3)' },
   hermes: { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' },
@@ -350,9 +363,11 @@ btnCloseBubble.addEventListener('click', () => {
   hideBubble();
 });
 
-// Double click on avatar toggles character skin
+// Double click on avatar cycles through all available character skins
 avatarSection.addEventListener('dblclick', () => {
-  currentSkin = currentSkin === 'astro' ? 'spark' : 'astro';
+  const skinKeys = Object.keys(SKINS);
+  const nextIdx = (skinKeys.indexOf(currentSkin) + 1) % skinKeys.length;
+  currentSkin = skinKeys[nextIdx];
   if (window.sparkAudio) window.sparkAudio.popNotification();
   updateState({ state: currentCharacterState, agent: currentSkin, message: `Switched to ${SKINS[currentSkin].name}` });
 });
@@ -409,17 +424,17 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Initial initialization
-updateState({ state: 'calm', agent: 'astro', skin: 'astro', message: 'Astro Ready' });
+// Initial initialization with Dr. Octopus
+updateState({ state: 'calm', agent: 'dr_octopus', skin: 'dr_octopus', message: 'Dr. Octopus Ready' });
 
 // Startup welcome bubble
 setTimeout(() => {
   showNotification({
     id: 'startup_welcome',
-    agent: 'astro',
+    agent: 'dr_octopus',
     state: 'calm',
-    title: 'Astro is active! 🧑‍🚀',
-    message: "I'm floating on your screen. You can drag me anywhere.\n\n💡 Double-click me to switch between Astro and Spark.",
+    title: 'Dr. Octopus is active! 🐙',
+    message: "I'm floating on your screen. You can drag me anywhere.\n\n💡 Double-click me to switch between Dr. Octopus, Astro, and Spark.",
     actions: ['Got it!'],
     timeout: 10,
     sound: true
