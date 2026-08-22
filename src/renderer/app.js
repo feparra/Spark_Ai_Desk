@@ -248,6 +248,14 @@ avatarSection.addEventListener('dblclick', () => {
   updateState({ state: currentCharacterState, agent: currentSkin, message: `Switched to ${SKINS[currentSkin].name}` });
 });
 
+// Right click on avatar opens context menu with options
+avatarSection.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (window.sparkBridge) {
+    window.sparkBridge.showContextMenu();
+  }
+});
+
 // Single click on avatar shows greeting
 avatarSection.addEventListener('click', (e) => {
   if (speechBubbleContainer.classList.contains('hidden')) {

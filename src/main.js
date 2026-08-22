@@ -10,6 +10,7 @@ let mainWindow = null;
 let tray = null;
 let sparkServer = null;
 let wanderEngine = null;
+let currentSkinName = 'capy';
 
 const PORT = process.env.SPARK_PORT || 7890;
 
@@ -35,78 +36,30 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
-function createSparkWindow() {
-  const cursorPoint = screen.getCursorScreenPoint();
-  const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
-  const workArea = currentDisplay.workArea;
-
-  const winWidth = 380;
-  const winHeight = 460;
-  
-  // Center on active display
-  const posX = Math.round(workArea.x + (workArea.width - winWidth) / 2);
-  const posY = Math.round(workArea.y + (workArea.height - winHeight) / 2);
-
-  console.log(`📍 Placing Spark on display [${currentDisplay.id}]: X=${posX}, Y=${posY}, Size=${winWidth}x${winHeight}`);
-
-  mainWindow = new BrowserWindow({
-    width: winWidth,
-    height: winHeight,
-    x: posX,
-    y: posY,
-    transparent: true,
-    frame: false,
-    alwaysOnTop: true,
-    hasShadow: false,
-    resizable: false,
-    skipTaskbar: false,
-    show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+function getCharacterIcon(skin = currentSkinName) {
+  const iconPath = path.join(__dirname, '..', 'assets', 'icons', `${skin}.png`);
+  try {
+    const img = nativeImage.createFromPath(iconPath);
+    if (!img.isEmpty()) {
+      return img.resize({ width: 32, height: 32 });
     }
-  });
-
-  mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
-    console.error(`❌ Failed to load index.html: [${code}] ${desc}`);
-  });
-
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`🖥️ [Renderer Log]: ${message} (Line ${line})`);
-  });
-
-  mainWindow.webContents.on('render-process-gone', (event, details) => {
-    console.error('❌ Render process crashed:', details);
-  });
-
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.center();
-    mainWindow.show();
-    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
-    mainWindow.moveTop();
-    mainWindow.focus();
-    console.log('✅ Spark companion window shown and focused.');
-
-    // Initialize Autonomous Multi-Monitor Wandering Engine
-    wanderEngine = new WanderEngine(mainWindow, sparkServer);
-    wanderEngine.start();
-  });
-
-  mainWindow.on('closed', () => {
-    if (wanderEngine) wanderEngine.stop();
-    mainWindow = null;
-  });
+  } catch (e) {}
+  return nativeImage.createEmpty();
 }
 
-function setupTray() {
-  const iconCanvas = nativeImage.createEmpty();
-  tray = new Tray(iconCanvas);
-  tray.setToolTip('⚡ Spark AI - Desktop Companion');
+function updateTrayIcon(skin) {
+  currentSkinName = skin || currentSkinName;
+  if (tray) {
+    const icon = getCharacterIcon(currentSkinName);
+    if (!icon.isEmpty()) {
+      tray.setImage(icon);
+    }
+    tray.setToolTip(`⚡ Spark AI Desktop Companion (${currentSkinName.toUpperCase()})`);
+  }
+}
 
-  const contextMenu = Menu.buildFromTemplate([
+function buildContextMenu() {
+  return Menu.buildFromTemplate([
     {
       label: '⚡ Spark AI Desktop',
       enabled: false
@@ -115,7 +68,7 @@ function setupTray() {
     {
       label: '🚶 Autonomous Roam Mode (Multi-Monitor)',
       type: 'checkbox',
-      checked: true,
+      checked: wanderEngine ? wanderEngine.enabled : true,
       click: (menuItem) => {
         if (wanderEngine) {
           wanderEngine.toggle(menuItem.checked);
@@ -126,27 +79,31 @@ function setupTray() {
       label: '🎭 Switch Character',
       submenu: [
         {
-          label: '🦫 Capy (Executive - New!)',
+          label: '🦫 Capy (Executive)',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'capy' });
+            updateTrayIcon('capy');
           }
         },
         {
           label: '🐙 Dr. Octopus',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'dr_octopus' });
+            updateTrayIcon('dr_octopus');
           }
         },
         {
           label: '🧑‍🚀 Astro 8-Bit',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'astro' });
+            updateTrayIcon('astro');
           }
         },
         {
           label: '⚡ Classic Spark',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'spark' });
+            updateTrayIcon('spark');
           }
         }
       ]
@@ -245,8 +202,8 @@ function setupTray() {
             if (sparkServer) {
               sparkServer.updateState({
                 state: 'calm',
-                agent: 'spark',
-                message: 'Spark is resting...'
+                agent: 'capy',
+                message: 'Capy is resting...'
               });
             }
           }
@@ -261,8 +218,93 @@ function setupTray() {
       }
     }
   ]);
+}
 
-  tray.setContextMenu(contextMenu);
+function createSparkWindow() {
+  const cursorPoint = screen.getCursorScreenPoint();
+  const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
+  const workArea = currentDisplay.workArea;
+
+  const winWidth = 380;
+  const winHeight = 460;
+  
+  // Center on active display
+  const posX = Math.round(workArea.x + (workArea.width - winWidth) / 2);
+  const posY = Math.round(workArea.y + (workArea.height - winHeight) / 2);
+
+  console.log(`📍 Placing Spark on display [${currentDisplay.id}]: X=${posX}, Y=${posY}, Size=${winWidth}x${winHeight}`);
+
+  const appIcon = getCharacterIcon(currentSkinName);
+
+  mainWindow = new BrowserWindow({
+    width: winWidth,
+    height: winHeight,
+    x: posX,
+    y: posY,
+    icon: appIcon,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    hasShadow: false,
+    resizable: false,
+    skipTaskbar: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
+    console.error(`❌ Failed to load index.html: [${code}] ${desc}`);
+  });
+
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`🖥️ [Renderer Log]: ${message} (Line ${line})`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('❌ Render process crashed:', details);
+  });
+
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.center();
+    mainWindow.show();
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+    mainWindow.moveTop();
+    mainWindow.focus();
+    console.log('✅ Spark companion window shown and focused.');
+
+    // Initialize Autonomous Multi-Monitor Wandering Engine
+    wanderEngine = new WanderEngine(mainWindow, sparkServer);
+    wanderEngine.start();
+  });
+
+  mainWindow.on('closed', () => {
+    if (wanderEngine) wanderEngine.stop();
+    mainWindow = null;
+  });
+}
+
+function setupTray() {
+  const icon = getCharacterIcon(currentSkinName);
+  tray = new Tray(icon);
+  tray.setToolTip(`⚡ Spark AI Desktop Companion (${currentSkinName.toUpperCase()})`);
+
+  tray.on('click', () => {
+    const contextMenu = buildContextMenu();
+    tray.popUpContextMenu(contextMenu);
+  });
+
+  tray.on('right-click', () => {
+    const contextMenu = buildContextMenu();
+    tray.popUpContextMenu(contextMenu);
+  });
+
+  tray.setContextMenu(buildContextMenu());
 }
 
 app.whenReady().then(() => {
@@ -277,6 +319,11 @@ app.whenReady().then(() => {
   sparkServer.broadcast = ((originalBroadcast) => {
     return function (messageObj) {
       originalBroadcast.call(sparkServer, messageObj);
+
+      // Update tray icon on skin change
+      if (messageObj.type === 'set_skin') {
+        updateTrayIcon(messageObj.skin);
+      }
 
       // Handle wander pausing/resuming based on agent activities
       if (wanderEngine) {
@@ -294,6 +341,14 @@ app.whenReady().then(() => {
       }
     };
   })(sparkServer.broadcast);
+
+  // Right-click context menu from avatar
+  ipcMain.on('show-context-menu', (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const menu = buildContextMenu();
+      menu.popup({ window: mainWindow });
+    }
+  });
 
   ipcMain.on('user-action', (event, { id, action }) => {
     if (sparkServer) {

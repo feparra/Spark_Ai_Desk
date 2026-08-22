@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('sparkBridge', {
   closeWindow: () => ipcRenderer.send('window-close'),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
   toggleAlwaysOnTop: (enable) => ipcRenderer.send('toggle-always-on-top', enable),
+  showContextMenu: () => ipcRenderer.send('show-context-menu'),
   onServerEvent: (callback) => {
     ipcRenderer.on('server-event', (event, data) => callback(data));
   }
