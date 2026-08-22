@@ -17,7 +17,7 @@ const PORT = process.env.SPARK_PORT || 7890;
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
-  app.quit();
+  app.exit(0);
 } else {
   app.on('second-instance', () => {
     if (mainWindow) {
@@ -27,7 +27,13 @@ if (!gotTheLock) {
   });
 }
 
+// 🚀 High-Performance Hardware Acceleration & Zero-CPU Flags
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 function createSparkWindow() {
   const cursorPoint = screen.getCursorScreenPoint();

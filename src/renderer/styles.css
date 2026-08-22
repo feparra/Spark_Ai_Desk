@@ -235,18 +235,20 @@ body {
   align-items: center;
   justify-content: center;
   transition: transform 0.3s ease;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .spark-avatar-container:hover {
-  transform: scale(1.04);
+  transform: translateZ(0) scale(1.04);
 }
 
 .spark-avatar-container.facing-left {
-  transform: scaleX(-1);
+  transform: translateZ(0) scaleX(-1);
 }
 
 .spark-avatar-container.facing-left:hover {
-  transform: scaleX(-1) scale(1.04);
+  transform: translateZ(0) scaleX(-1) scale(1.04);
 }
 
 .spark-media {
