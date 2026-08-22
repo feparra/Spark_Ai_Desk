@@ -5,11 +5,13 @@ const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } = require
 const path = require('path');
 const SparkServer = require('./server');
 const WanderEngine = require('./wander');
+const AgentRadar = require('./radar');
 
 let mainWindow = null;
 let tray = null;
 let sparkServer = null;
 let wanderEngine = null;
+let agentRadar = null;
 let currentSkinName = 'capy';
 
 const PORT = process.env.SPARK_PORT || 7890;
@@ -335,6 +337,9 @@ app.whenReady().then(() => {
   sparkServer = new SparkServer(PORT);
   sparkServer.start().then(() => {
     console.log('⚡ Spark Server initialized successfully');
+    // Start background agent radar
+    agentRadar = new AgentRadar(sparkServer);
+    agentRadar.start();
   });
 
   sparkServer.broadcast = ((originalBroadcast) => {

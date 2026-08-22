@@ -324,6 +324,10 @@ if (window.sparkBridge) {
       hideBubble();
     } else if (eventData.type === 'set_skin') {
       updateState({ state: currentCharacterState, skin: eventData.skin });
+    } else if (eventData.type === 'agents_radar_update') {
+      if (currentCharacterState === 'calm') {
+        statusPillText.textContent = eventData.pillMessage;
+      }
     } else if (eventData.type === 'facing_changed') {
       const avatarContainer = document.getElementById('sparkAvatarContainer');
       if (avatarContainer) {
