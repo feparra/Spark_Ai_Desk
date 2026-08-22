@@ -11,14 +11,14 @@ let sparkServer = null;
 
 const PORT = process.env.SPARK_PORT || 7890;
 
-// Evitar múltiples instancias de Spark
+// Prevent multiple instances of Spark
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    // Si el usuario vuelve a abrir el .bat, traer la ventana al frente
+    // If the user re-runs the launcher, bring window forward
     if (mainWindow) {
       if (!mainWindow.isVisible()) mainWindow.show();
       mainWindow.focus();
@@ -36,11 +36,11 @@ function createSparkWindow() {
   const winWidth = 380;
   const winHeight = 460;
   
-  // Ubicarlo centrado verticalmente hacia la derecha de la pantalla donde el usuario tiene el cursor
+  // Center on the active display where user's cursor is located
   const posX = Math.round(workArea.x + (workArea.width - winWidth) / 2);
   const posY = Math.round(workArea.y + (workArea.height - winHeight) / 2);
 
-  console.log(`📍 Posicionando Spark en la pantalla activa [${currentDisplay.id}]: X=${posX}, Y=${posY}, Tamaño=${winWidth}x${winHeight}`);
+  console.log(`📍 Placing Spark on active display [${currentDisplay.id}]: X=${posX}, Y=${posY}, Size=${winWidth}x${winHeight}`);
 
   mainWindow = new BrowserWindow({
     width: winWidth,
@@ -62,11 +62,11 @@ function createSparkWindow() {
   });
 
   mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
-    console.error(`❌ Error al cargar index.html: [${code}] ${desc}`);
+    console.error(`❌ Failed to load index.html: [${code}] ${desc}`);
   });
 
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`🖥️ [Renderer Log]: ${message} (Línea ${line})`);
+    console.log(`🖥️ [Renderer Log]: ${message} (Line ${line})`);
   });
 
   mainWindow.webContents.on('render-process-gone', (event, details) => {
@@ -76,12 +76,12 @@ function createSparkWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.center(); // Centrar en pantalla
+    mainWindow.center();
     mainWindow.show();
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
     mainWindow.moveTop();
     mainWindow.focus();
-    console.log('✅ Ventana de Spark centrada y mostrada en pantalla.');
+    console.log('✅ Spark companion window shown and focused.');
   });
 
   mainWindow.on('closed', () => {
@@ -90,7 +90,6 @@ function createSparkWindow() {
 }
 
 function setupTray() {
-  // Crear un icono simple si no hay asset de icono aún
   const iconCanvas = nativeImage.createEmpty();
   tray = new Tray(iconCanvas);
   tray.setToolTip('⚡ Spark AI - Desktop Companion');
@@ -102,16 +101,16 @@ function setupTray() {
     },
     { type: 'separator' },
     {
-      label: '🎭 Cambiar Personaje',
+      label: '🎭 Switch Character',
       submenu: [
         {
-          label: '🧑‍🚀 Astro 8-Bit (Recomendado)',
+          label: '🧑‍🚀 Astro 8-Bit (Recommended)',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'astro' });
           }
         },
         {
-          label: '⚡ Spark Clásico',
+          label: '⚡ Classic Spark',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'spark' });
           }
@@ -120,7 +119,7 @@ function setupTray() {
     },
     { type: 'separator' },
     {
-      label: '🎯 Traer a la Posición de mi Cursor',
+      label: '🎯 Bring to My Cursor Position',
       click: () => {
         if (mainWindow) {
           const pt = screen.getCursorScreenPoint();
@@ -131,7 +130,7 @@ function setupTray() {
       }
     },
     {
-      label: 'Mostrar / Ocultar',
+      label: 'Show / Hide',
       click: () => {
         if (mainWindow.isVisible()) {
           mainWindow.hide();
@@ -141,20 +140,19 @@ function setupTray() {
       }
     },
     {
-      label: 'Resetear Posición',
+      label: 'Reset Position (Center)',
       click: () => {
         if (mainWindow) {
-          const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-          mainWindow.setPosition(width - 400, height - 480);
+          mainWindow.center();
           mainWindow.show();
         }
       }
     },
     {
-      label: '🧪 Probar Notificación de Agente',
+      label: '🧪 Test Agent Notification',
       submenu: [
         {
-          label: 'Claude: Aprobación requerida',
+          label: 'Claude: Approval Required',
           click: () => {
             if (sparkServer) {
               sparkServer.broadcast({
@@ -163,9 +161,9 @@ function setupTray() {
                   id: 'test_' + Date.now(),
                   agent: 'claude',
                   state: 'waiting',
-                  title: 'Claude requiere confirmación',
-                  message: '¿Autorizas ejecutar "npm test" en la terminal?',
-                  actions: ['Aprobar', 'Rechazar'],
+                  title: 'Claude needs confirmation',
+                  message: 'Authorize running "npm test" in the terminal?',
+                  actions: ['Approve', 'Reject'],
                   sound: true,
                   timestamp: Date.now()
                 }
@@ -174,7 +172,7 @@ function setupTray() {
           }
         },
         {
-          label: 'Antigravity: Tarea completada',
+          label: 'Antigravity: Task Completed',
           click: () => {
             if (sparkServer) {
               sparkServer.broadcast({
@@ -183,9 +181,9 @@ function setupTray() {
                   id: 'test_' + Date.now(),
                   agent: 'antigravity',
                   state: 'done',
-                  title: 'Antigravity completó la tarea',
-                  message: 'Todos los tests pasaron exitosamente ✨',
-                  actions: ['Genial', 'Cerrar'],
+                  title: 'Antigravity task completed',
+                  message: 'All tests passed successfully ✨',
+                  actions: ['Awesome', 'Close'],
                   sound: true,
                   timestamp: Date.now()
                 }
@@ -194,25 +192,25 @@ function setupTray() {
           }
         },
         {
-          label: 'Estado: Escribiendo código',
+          label: 'State: Writing Code',
           click: () => {
             if (sparkServer) {
               sparkServer.updateState({
                 state: 'working',
                 agent: 'hermes',
-                message: 'Hermes está generando el componente...'
+                message: 'Hermes is generating components...'
               });
             }
           }
         },
         {
-          label: 'Estado: Reposo (Calm)',
+          label: 'State: Resting (Calm)',
           click: () => {
             if (sparkServer) {
               sparkServer.updateState({
                 state: 'calm',
                 agent: 'spark',
-                message: 'Spark está descansando...'
+                message: 'Spark is resting...'
               });
             }
           }
@@ -221,7 +219,7 @@ function setupTray() {
     },
     { type: 'separator' },
     {
-      label: 'Salir de Spark',
+      label: 'Quit Spark',
       click: () => {
         app.quit();
       }
@@ -235,13 +233,11 @@ app.whenReady().then(() => {
   createSparkWindow();
   setupTray();
 
-  // Iniciar servidor local de eventos
   sparkServer = new SparkServer(PORT);
   sparkServer.start().then(() => {
-    console.log('⚡ Servidor Spark inicializado correctamente');
+    console.log('⚡ Spark Server initialized successfully');
   });
 
-  // Reenviar eventos del servidor a la ventana de Electron
   sparkServer.broadcast = ((originalBroadcast) => {
     return function (messageObj) {
       originalBroadcast.call(sparkServer, messageObj);

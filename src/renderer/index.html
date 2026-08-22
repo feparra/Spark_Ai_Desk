@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- 💬 Bocadillo de Diálogo Interactivo (Speech Bubble) -->
+  <!-- 💬 Interactive Speech Bubble (Clippy Modern Style) -->
   <div id="speechBubbleContainer" class="speech-bubble-container hidden">
     <div class="speech-bubble">
       <div class="bubble-header">
@@ -16,23 +16,23 @@
           <span class="dot"></span>
           <span id="agentNameText">Spark</span>
         </div>
-        <button id="btnCloseBubble" class="btn-close-bubble" title="Cerrar">✕</button>
+        <button id="btnCloseBubble" class="btn-close-bubble" title="Close">✕</button>
       </div>
 
-      <div id="bubbleTitle" class="bubble-title">¡Hola Fernando!</div>
-      <div id="bubbleMessage" class="bubble-message">Estoy listo para acompañarte y monitorear tus agentes.</div>
+      <div id="bubbleTitle" class="bubble-title">Hello there!</div>
+      <div id="bubbleMessage" class="bubble-message">I'm ready to accompany you and monitor your AI agents.</div>
       <div id="bubbleCode" class="bubble-code" style="display: none;"></div>
 
       <div id="bubbleActions" class="bubble-actions">
-        <!-- Los botones dinámicos se insertan aquí -->
+        <!-- Dynamic action buttons injected here -->
       </div>
     </div>
   </div>
 
-  <!-- ⚡ Sección del Avatar (Astro / Spark) -->
-  <div class="avatar-section" id="avatarSection" title="Doble clic para cambiar personaje | Arrastra para mover">
+  <!-- ⚡ Avatar Section (Astro / Spark) -->
+  <div class="avatar-section" id="avatarSection" title="Double click to switch character | Drag to move">
     <div class="spark-avatar-container" id="sparkAvatarContainer">
-      <!-- Elementos multimedia y Canvas con eliminación de fondo negro en tiempo real -->
+      <!-- Media elements & Canvas with real-time black background removal -->
       <canvas id="sparkCanvas" class="spark-media" width="140" height="140"></canvas>
       <video id="sparkVideo" muted playsinline loop style="display: none;"></video>
       <img id="sparkImg" style="display: none;" alt="Spark Avatar">
@@ -42,7 +42,7 @@
     <!-- Status Pill -->
     <div class="status-pill" id="statusPill">
       <div class="status-pill-dot" id="statusPillDot"></div>
-      <span class="status-pill-text" id="statusPillText">Astro Listo</span>
+      <span class="status-pill-text" id="statusPillText">Astro Ready</span>
     </div>
   </div>
 

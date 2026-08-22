@@ -19,7 +19,7 @@ class SparkServer {
     this.currentState = {
       state: 'calm',
       agent: 'spark',
-      message: 'Spark está descansando...',
+      message: 'Spark is resting...',
       lastUpdate: Date.now()
     };
 
@@ -84,10 +84,10 @@ class SparkServer {
           const id = json.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
           const agent = json.agent || 'spark';
           const state = json.state || 'waiting';
-          const title = json.title || 'Atención requerida';
+          const title = json.title || 'Attention Required';
           const message = json.message || '';
           const code = json.code || '';
-          const actions = json.actions || ['Aprobar', 'Rechazar'];
+          const actions = json.actions || ['Approve', 'Reject'];
           const timeout = json.timeout || 0;
           const sound = json.sound !== false;
 
@@ -130,7 +130,7 @@ class SparkServer {
 
         if (pathname === '/api/dismiss') {
           this.broadcast({ type: 'dismiss' });
-          this.updateState({ state: 'calm', agent: 'spark', message: 'En reposo' });
+          this.updateState({ state: 'calm', agent: 'spark', message: 'Resting' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true }));
           return;
@@ -160,7 +160,7 @@ class SparkServer {
             this.updateState(parsed.data);
           }
         } catch (err) {
-          console.error('Error parseando mensaje WS:', err);
+          console.error('Error parsing WS message:', err);
         }
       });
 
@@ -201,15 +201,15 @@ class SparkServer {
     return new Promise((resolve) => {
       this.server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          console.log(`⚠️ El puerto ${this.port} ya está en uso por otra instancia.`);
+          console.log(`⚠️ Port ${this.port} is already in use by another instance.`);
         } else {
-          console.error('Error en servidor HTTP:', err);
+          console.error('HTTP Server Error:', err);
         }
         resolve(this.port);
       });
 
       this.server.listen(this.port, () => {
-        console.log(`⚡ Spark Server escuchando en http://localhost:${this.port}`);
+        console.log(`⚡ Spark Server listening on http://localhost:${this.port}`);
         resolve(this.port);
       });
     });

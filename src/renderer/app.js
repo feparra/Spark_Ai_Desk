@@ -14,7 +14,7 @@ const SKINS = {
     }
   },
   spark: {
-    name: 'Spark Clásico',
+    name: 'Classic Spark',
     type: 'image',
     assets: {
       calm: '../../assets/gifs/spark_calm.gif',
@@ -41,20 +41,31 @@ const AGENT_COLORS = {
   codex: { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' }
 };
 
-// Elementos del DOM
+// DOM Elements
 const sparkCanvas = document.getElementById('sparkCanvas');
 const ctx = sparkCanvas.getContext('2d', { willReadFrequently: true });
 const sparkImg = document.getElementById('sparkImg');
 const sparkVideo = document.getElementById('sparkVideo');
 const speechBubbleContainer = document.getElementById('speechBubbleContainer');
+const agentBadge = document.getElementById('agentBadge');
+const agentNameText = document.getElementById('agentNameText');
+const btnCloseBubble = document.getElementById('btnCloseBubble');
+const bubbleTitle = document.getElementById('bubbleTitle');
+const bubbleMessage = document.getElementById('bubbleMessage');
+const bubbleCode = document.getElementById('bubbleCode');
+const bubbleActions = document.getElementById('bubbleActions');
+const statusPillText = document.getElementById('statusPillText');
+const statusPillDot = document.getElementById('statusPillDot');
+const avatarSection = document.getElementById('avatarSection');
+
+let currentNotificationId = null;
+let bubbleTimer = null;
 
 // =========================================================
-// 🪄 MOTOR INTELIGENTE DE BORDE EXTERIOR (FLOOD-FILL TRANSPARENCY)
-// Preserva el visor negro, ojos, sombras y detalles oscuros interiores del personaje.
+// 🪄 FLOOD-FILL BOUNDARY TRANSPARENCY ENGINE
+// Preserves the dark visor, eyes, shadows, and internal details.
 // =========================================================
 let isRendering = false;
-
-// Reutilizar arrays para máximo rendimiento sin garbage collection
 let visitedBuffer = null;
 let queueBuffer = null;
 
@@ -97,7 +108,7 @@ function removeOuterBackgroundFloodFill(w, h) {
       visitedBuffer.fill(0);
     }
 
-    // Comprobar si un píxel es color de fondo oscuro exterior
+    // Check if pixel is dark background from outside
     const isBgPixel = (idx) => {
       const r = data[idx * 4];
       const g = data[idx * 4 + 1];
@@ -107,7 +118,7 @@ function removeOuterBackgroundFloodFill(w, h) {
 
     let qLen = 0;
 
-    // 1. Sembrar la cola con todos los píxeles de los 4 bordes exteriores
+    // 1. Seed queue with all 4 outer border edges
     for (let x = 0; x < w; x++) {
       const top = x;
       const btm = (h - 1) * w + x;
@@ -121,31 +132,31 @@ function removeOuterBackgroundFloodFill(w, h) {
       if (isBgPixel(rgt) && !visitedBuffer[rgt]) { visitedBuffer[rgt] = 1; queueBuffer[qLen++] = rgt; }
     }
 
-    // 2. Flood Fill BFS solo hacia el fondo exterior contiguo
+    // 2. BFS Flood Fill only towards contiguous outer background
     let head = 0;
     while (head < qLen) {
       const curr = queueBuffer[head++];
-      data[curr * 4 + 3] = 0; // Transparencia SOLO para el fondo exterior
+      data[curr * 4 + 3] = 0; // Pure transparency ONLY for outer background
 
       const cx = curr % w;
       const cy = (curr / w) | 0;
 
-      // Vecino Izquierda
+      // Left Neighbor
       if (cx > 0) {
         const n = curr - 1;
         if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
       }
-      // Vecino Derecha
+      // Right Neighbor
       if (cx < w - 1) {
         const n = curr + 1;
         if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
       }
-      // Vecino Arriba
+      // Top Neighbor
       if (cy > 0) {
         const n = curr - w;
         if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
       }
-      // Vecino Abajo
+      // Bottom Neighbor
       if (cy < h - 1) {
         const n = curr + w;
         if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
@@ -154,36 +165,23 @@ function removeOuterBackgroundFloodFill(w, h) {
 
     ctx.putImageData(imgData, 0, 0);
   } catch (e) {
-    // Fallback de contexto
+    // Context fallback
   }
 }
 
 sparkVideo.onerror = (e) => {
-  console.error('❌ Error cargando video:', sparkVideo.src);
+  console.error('❌ Error loading video:', sparkVideo.src);
   currentSkin = 'spark';
   updateState({ state: currentCharacterState, skin: 'spark' });
 };
 
 sparkVideo.onloadeddata = () => {
-  console.log('🎬 Video de Astro cargado y listo para reproducir:', sparkVideo.src);
-  sparkVideo.play().catch(e => console.log('Autoplay play error:', e));
+  console.log('🎬 Astro video ready to play:', sparkVideo.src);
+  sparkVideo.play().catch(e => console.log('Autoplay handled:', e));
 };
-const agentBadge = document.getElementById('agentBadge');
-const agentNameText = document.getElementById('agentNameText');
-const btnCloseBubble = document.getElementById('btnCloseBubble');
-const bubbleTitle = document.getElementById('bubbleTitle');
-const bubbleMessage = document.getElementById('bubbleMessage');
-const bubbleCode = document.getElementById('bubbleCode');
-const bubbleActions = document.getElementById('bubbleActions');
-const statusPillText = document.getElementById('statusPillText');
-const statusPillDot = document.getElementById('statusPillDot');
-const avatarSection = document.getElementById('avatarSection');
-
-let currentNotificationId = null;
-let bubbleTimer = null;
 
 // =========================================================
-// 🔄 ACTUALIZACIÓN DE ESTADO & PERSONAJE
+// 🔄 STATE & CHARACTER UPDATE
 // =========================================================
 function updateState(stateData) {
   const { state = 'calm', agent = currentSkin, message = '', skin } = stateData;
@@ -193,7 +191,7 @@ function updateState(stateData) {
     currentSkin = skin;
   }
 
-  // 1. Renderizar según el Skin activo (Video o GIF)
+  // 1. Render active skin (Video or GIF)
   const activeSkin = SKINS[currentSkin] || SKINS.astro;
   const assetUrl = activeSkin.assets[state] || activeSkin.assets.calm;
 
@@ -213,7 +211,7 @@ function updateState(stateData) {
 
   startCanvasRenderLoop();
 
-  // 2. Color del Agente
+  // 2. Agent Theme
   applyAgentTheme(agent);
 
   // 3. Status Pill
@@ -245,12 +243,12 @@ function updateState(stateData) {
 function getStatusDefaultText(state, agent) {
   const name = capitalize(agent || (currentSkin === 'astro' ? 'Astro' : 'Spark'));
   switch (state) {
-    case 'working': return `${name} está escribiendo...`;
-    case 'waiting': return `${name} espera confirmación`;
-    case 'done': return `Tarea completada ✨`;
-    case 'error': return `Error en ejecución ❌`;
-    case 'connecting': return `Conectando con ${name}...`;
-    default: return `${name} en reposo`;
+    case 'working': return `${name} is coding...`;
+    case 'waiting': return `${name} needs confirmation`;
+    case 'done': return `Task completed ✨`;
+    case 'error': return `Execution error ❌`;
+    case 'connecting': return `Connecting to ${name}...`;
+    default: return `${name} is resting`;
   }
 }
 
@@ -265,17 +263,17 @@ function applyAgentTheme(agentName) {
 }
 
 // =========================================================
-// 💬 NOTIFICACIONES Y BOCADILLO ESTILO CLIPPY
+// 💬 NOTIFICATIONS & CLIPPY-STYLE SPEECH BUBBLE
 // =========================================================
 function showNotification(notif) {
   const {
     id,
     agent = currentSkin,
     state = 'waiting',
-    title = 'Atención',
+    title = 'Attention',
     message = '',
     code = '',
-    actions = ['Aprobar', 'Rechazar'],
+    actions = ['Approve', 'Reject'],
     timeout = 0,
     sound = true
   } = notif;
@@ -283,7 +281,7 @@ function showNotification(notif) {
   currentNotificationId = id;
   if (bubbleTimer) clearTimeout(bubbleTimer);
 
-  // Reproducir sonido correspondiente
+  // Play corresponding sound
   if (sound && window.sparkAudio) {
     if (state === 'waiting') {
       window.sparkAudio.knockKnock();
@@ -296,7 +294,7 @@ function showNotification(notif) {
     }
   }
 
-  // Actualizar contenido del bocadillo
+  // Update bubble content
   applyAgentTheme(agent);
   bubbleTitle.textContent = title;
   bubbleMessage.textContent = message;
@@ -308,7 +306,7 @@ function showNotification(notif) {
     bubbleCode.style.display = 'none';
   }
 
-  // Generar botones de acción
+  // Generate action buttons
   bubbleActions.innerHTML = '';
   if (Array.isArray(actions) && actions.length > 0) {
     actions.forEach((actText, idx) => {
@@ -320,10 +318,10 @@ function showNotification(notif) {
     });
   }
 
-  // Mostrar bocadillo
+  // Show bubble
   speechBubbleContainer.classList.remove('hidden');
 
-  // Timer de auto-cierre si se especifica
+  // Auto-dismiss timer if specified
   if (timeout > 0) {
     bubbleTimer = setTimeout(() => {
       hideBubble();
@@ -346,20 +344,20 @@ function hideBubble() {
   currentNotificationId = null;
 }
 
-// Botón cerrar bocadillo
+// Close button
 btnCloseBubble.addEventListener('click', () => {
   if (window.sparkAudio) window.sparkAudio.buttonClick();
   hideBubble();
 });
 
-// Doble click para alternar entre Astro y Spark
+// Double click on avatar toggles character skin
 avatarSection.addEventListener('dblclick', () => {
   currentSkin = currentSkin === 'astro' ? 'spark' : 'astro';
   if (window.sparkAudio) window.sparkAudio.popNotification();
-  updateState({ state: currentCharacterState, agent: currentSkin, message: `Cambiado a ${SKINS[currentSkin].name}` });
+  updateState({ state: currentCharacterState, agent: currentSkin, message: `Switched to ${SKINS[currentSkin].name}` });
 });
 
-// Click simple en el avatar para mostrar mensaje amistoso o estado
+// Single click on avatar shows greeting
 avatarSection.addEventListener('click', (e) => {
   if (speechBubbleContainer.classList.contains('hidden')) {
     if (window.sparkAudio) window.sparkAudio.popNotification();
@@ -368,9 +366,9 @@ avatarSection.addEventListener('click', (e) => {
       id: 'greet_' + Date.now(),
       agent: currentSkin,
       state: 'calm',
-      title: `¡Hola! Soy tu asistente (${activeName})`,
-      message: 'Estoy activo y listo para alertarte sobre cualquier evento de tus agentes de IA.\n\n💡 Tip: Haz doble clic sobre mí para cambiar de personaje.',
-      actions: ['¡Entendido!'],
+      title: `Hi! I'm your desktop companion (${activeName})`,
+      message: "I'm active and ready to alert you about your AI agents' tasks.\n\n💡 Tip: Double-click me to switch characters.",
+      actions: ['Got it!'],
       timeout: 8,
       sound: false
     });
@@ -378,11 +376,11 @@ avatarSection.addEventListener('click', (e) => {
 });
 
 // =========================================================
-// 🔌 ESCUCHAR EVENTOS DESDE ELECTRON IPC / BACKEND
+// 🔌 LISTEN TO ELECTRON IPC / BACKEND EVENTS
 // =========================================================
 if (window.sparkBridge) {
   window.sparkBridge.onServerEvent((eventData) => {
-    console.log('📥 Evento recibido en Renderer:', eventData);
+    console.log('📥 Event received in Renderer:', eventData);
 
     if (eventData.type === 'state_changed' || eventData.type === 'init') {
       updateState(eventData.data);
@@ -402,18 +400,18 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Inicialización inicial con Astro 8-Bit
-updateState({ state: 'calm', agent: 'astro', skin: 'astro', message: 'Astro Listo' });
+// Initial initialization
+updateState({ state: 'calm', agent: 'astro', skin: 'astro', message: 'Astro Ready' });
 
-// Mostrar bocadillo inicial para que el usuario ubique a Astro/Spark de inmediato
+// Startup welcome bubble
 setTimeout(() => {
   showNotification({
     id: 'startup_welcome',
     agent: 'astro',
     state: 'calm',
-    title: '¡Astro está activo! 🧑‍🚀',
-    message: 'Estoy flotando en tu pantalla. Puedes arrastrarme a donde quieras.\n\n💡 Haz doble clic sobre mí para alternar entre Astro y Spark.',
-    actions: ['¡Entendido!'],
+    title: 'Astro is active! 🧑‍🚀',
+    message: "I'm floating on your screen. You can drag me anywhere.\n\n💡 Double-click me to switch between Astro and Spark.",
+    actions: ['Got it!'],
     timeout: 10,
     sound: true
   });
