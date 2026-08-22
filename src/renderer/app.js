@@ -12,6 +12,39 @@ const SKINS = {
       error: '../../assets/capy/error.gif'
     }
   },
+  llama: {
+    name: 'Llama',
+    assets: {
+      calm: '../../assets/llama/calm.gif',
+      working: '../../assets/llama/working.gif',
+      waiting: '../../assets/llama/waiting.gif',
+      connecting: '../../assets/llama/waiting.gif',
+      done: '../../assets/llama/done.gif',
+      error: '../../assets/llama/error.gif'
+    }
+  },
+  kitty: {
+    name: 'Kitty',
+    assets: {
+      calm: '../../assets/kitty/calm.gif',
+      working: '../../assets/kitty/working.gif',
+      waiting: '../../assets/kitty/waiting.gif',
+      connecting: '../../assets/kitty/waiting.gif',
+      done: '../../assets/kitty/done.gif',
+      error: '../../assets/kitty/error.gif'
+    }
+  },
+  piper: {
+    name: 'Piper',
+    assets: {
+      calm: '../../assets/piper/calm.gif',
+      working: '../../assets/piper/working.gif',
+      waiting: '../../assets/piper/waiting.gif',
+      connecting: '../../assets/piper/waiting.gif',
+      done: '../../assets/piper/done.gif',
+      error: '../../assets/piper/error.gif'
+    }
+  },
   dr_octopus: {
     name: 'Dr. Octopus',
     assets: {
@@ -53,6 +86,9 @@ let currentAssetLoaded = '';
 
 const AGENT_COLORS = {
   capy: { bg: 'rgba(217, 119, 6, 0.15)', text: '#d97706', border: 'rgba(217, 119, 6, 0.3)' },
+  llama: { bg: 'rgba(59, 130, 246, 0.15)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' },
+  kitty: { bg: 'rgba(234, 88, 12, 0.15)', text: '#ea580c', border: 'rgba(234, 88, 12, 0.3)' },
+  piper: { bg: 'rgba(236, 72, 153, 0.15)', text: '#ec4899', border: 'rgba(236, 72, 153, 0.3)' },
   spark: { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.3)' },
   astro: { bg: 'rgba(249, 115, 22, 0.15)', text: '#fb923c', border: 'rgba(249, 115, 22, 0.3)' },
   dr_octopus: { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', border: 'rgba(16, 185, 129, 0.3)' },

@@ -86,6 +86,27 @@ function buildContextMenu() {
           }
         },
         {
+          label: '🦙 Llama (Gentleman)',
+          click: () => {
+            if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'llama' });
+            updateTrayIcon('llama');
+          }
+        },
+        {
+          label: '🐱 Kitty (Artist)',
+          click: () => {
+            if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'kitty' });
+            updateTrayIcon('kitty');
+          }
+        },
+        {
+          label: '🐦 Piper (Scholar)',
+          click: () => {
+            if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'piper' });
+            updateTrayIcon('piper');
+          }
+        },
+        {
           label: '🐙 Dr. Octopus',
           click: () => {
             if (sparkServer) sparkServer.broadcast({ type: 'set_skin', skin: 'dr_octopus' });
