@@ -1,4 +1,4 @@
-// 🚶 Spark & Astro Autonomous Multi-Monitor Wandering Engine (Desktop Pet Mode)
+// 🚶 Spark & Astro Autonomous Multi-Monitor Wandering Engine (Robust & Safe)
 
 const { screen } = require('electron');
 
@@ -6,28 +6,30 @@ class WanderEngine {
   constructor(mainWindow, sparkServer) {
     this.mainWindow = mainWindow;
     this.sparkServer = sparkServer;
-    this.enabled = true; // Enabled by default
+    this.enabled = true;
     this.isPausedByAgent = false;
-    this.isUserDragging = false;
     
     this.currentPos = { x: 0, y: 0 };
     this.targetPos = { x: 0, y: 0 };
-    this.state = 'IDLE'; // 'IDLE', 'WALKING', 'PAUSED'
+    this.state = 'IDLE';
     this.facing = 'right';
     
     this.moveInterval = null;
     this.idleTimer = null;
     
-    this.speed = 1.6; // Pixels per step for smooth walking/floating
+    this.speed = 1.6;
   }
 
   start() {
-    if (!this.mainWindow) return;
-    const [x, y] = this.mainWindow.getPosition();
-    this.currentPos = { x, y };
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+    try {
+      const [x, y] = this.mainWindow.getPosition();
+      this.currentPos = { x: Number(x) || 0, y: Number(y) || 0 };
+    } catch (e) {
+      this.currentPos = { x: 100, y: 100 };
+    }
 
-    // Permanecer quieto al inicio para que el usuario lo vea claramente
-    this.scheduleNextWalk(15000); // 15 segundos de reposo inicial
+    this.scheduleNextWalk(15000); // 15 seconds initial rest
     this.startMoveLoop();
   }
 
@@ -41,7 +43,7 @@ class WanderEngine {
     console.log(`🚶 Wander Mode: ${this.enabled ? 'ENABLED' : 'DISABLED'}`);
     if (this.enabled) {
       if (this.state === 'IDLE') {
-        this.scheduleNextWalk(2000);
+        this.scheduleNextWalk(3000);
       }
     } else {
       this.state = 'IDLE';
@@ -56,7 +58,7 @@ class WanderEngine {
     if (this.idleTimer) clearTimeout(this.idleTimer);
   }
 
-  resumeAfterAgent(delayMs = 4000) {
+  resumeAfterAgent(delayMs = 5000) {
     this.isPausedByAgent = false;
     if (this.enabled) {
       this.scheduleNextWalk(delayMs);
@@ -77,50 +79,49 @@ class WanderEngine {
   pickNewTarget() {
     if (!this.mainWindow || this.mainWindow.isDestroyed() || !this.enabled || this.isPausedByAgent) return;
 
-    const displays = screen.getAllDisplays();
-    if (displays.length === 0) return;
+    try {
+      const displays = screen.getAllDisplays();
+      if (!displays || displays.length === 0) return;
 
-    // Pick a random display (enables cross-monitor walking between Monitor 1 and Monitor 2!)
-    const targetDisplay = displays[Math.floor(Math.random() * displays.length)];
-    const workArea = targetDisplay.workArea;
+      const targetDisplay = displays[Math.floor(Math.random() * displays.length)];
+      const workArea = targetDisplay.workArea || { x: 0, y: 0, width: 1920, height: 1080 };
 
-    const [winW, winH] = this.mainWindow.getSize();
+      const [winW, winH] = this.mainWindow.getSize();
 
-    // Pick a destination on the target monitor
-    // 70% of the time, walk near the bottom edge (dock/floor), 30% float higher
-    const isFloating = Math.random() < 0.35;
+      const minX = Math.round(workArea.x + 30);
+      const maxX = Math.round(workArea.x + workArea.width - winW - 30);
+      const targetX = Math.round(minX + Math.random() * Math.max(0, maxX - minX));
 
-    const minX = workArea.x + 30;
-    const maxX = workArea.x + workArea.width - winW - 30;
-    const targetX = Math.round(minX + Math.random() * Math.max(0, maxX - minX));
+      const isFloating = Math.random() < 0.35;
+      let targetY;
+      if (isFloating) {
+        const minY = Math.round(workArea.y + 60);
+        const maxY = Math.round(workArea.y + workArea.height - winH - 120);
+        targetY = Math.round(minY + Math.random() * Math.max(0, maxY - minY));
+      } else {
+        targetY = Math.round(workArea.y + workArea.height - winH - 30);
+      }
 
-    let targetY;
-    if (isFloating) {
-      const minY = workArea.y + 60;
-      const maxY = workArea.y + workArea.height - winH - 120;
-      targetY = Math.round(minY + Math.random() * Math.max(0, maxY - minY));
-    } else {
-      targetY = Math.round(workArea.y + workArea.height - winH - 30);
+      const [curX, curY] = this.mainWindow.getPosition();
+      this.currentPos = { x: Number(curX) || 0, y: Number(curY) || 0 };
+      this.targetPos = { x: Number(targetX) || curX, y: Number(targetY) || curY };
+
+      const newFacing = this.targetPos.x < this.currentPos.x ? 'left' : 'right';
+      if (newFacing !== this.facing) {
+        this.facing = newFacing;
+        this.notifyFacingDirection(this.facing);
+      }
+
+      this.state = 'WALKING';
+    } catch (err) {
+      console.error('Error picking target:', err);
+      this.state = 'IDLE';
     }
-
-    const [curX, curY] = this.mainWindow.getPosition();
-    this.currentPos = { x: curX, y: curY };
-    this.targetPos = { x: targetX, y: targetY };
-
-    // Determine facing direction (left or right)
-    const newFacing = targetX < curX ? 'left' : 'right';
-    if (newFacing !== this.facing) {
-      this.facing = newFacing;
-      this.notifyFacingDirection(this.facing);
-    }
-
-    this.state = 'WALKING';
   }
 
   startMoveLoop() {
     if (this.moveInterval) clearInterval(this.moveInterval);
 
-    // 40 ticks per second (25ms interval) for buttery smooth motion
     this.moveInterval = setInterval(() => {
       if (!this.enabled || this.isPausedByAgent || this.state !== 'WALKING' || !this.mainWindow || this.mainWindow.isDestroyed()) {
         return;
@@ -130,28 +131,39 @@ class WanderEngine {
       const dy = this.targetPos.y - this.currentPos.y;
       const dist = Math.hypot(dx, dy);
 
-      if (dist < this.speed + 1) {
-        // Destination reached!
+      if (dist <= this.speed + 1 || isNaN(dist) || dist === 0) {
         this.currentPos.x = this.targetPos.x;
         this.currentPos.y = this.targetPos.y;
-        this.mainWindow.setPosition(Math.round(this.currentPos.x), Math.round(this.currentPos.y));
+        this.safeSetPosition(this.currentPos.x, this.currentPos.y);
         this.state = 'IDLE';
 
-        // Rest at destination for 6 to 16 seconds before walking again
         const restTime = 6000 + Math.random() * 10000;
         this.scheduleNextWalk(restTime);
         return;
       }
 
-      // Step towards destination
       const stepX = (dx / dist) * this.speed;
       const stepY = (dy / dist) * this.speed;
 
-      this.currentPos.x += stepX;
-      this.currentPos.y += stepY;
-
-      this.mainWindow.setPosition(Math.round(this.currentPos.x), Math.round(this.currentPos.y));
+      if (!isNaN(stepX) && !isNaN(stepY)) {
+        this.currentPos.x += stepX;
+        this.currentPos.y += stepY;
+        this.safeSetPosition(this.currentPos.x, this.currentPos.y);
+      }
     }, 25);
+  }
+
+  safeSetPosition(x, y) {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+    const safeX = Math.round(Number(x));
+    const safeY = Math.round(Number(y));
+    if (!isNaN(safeX) && !isNaN(safeY)) {
+      try {
+        this.mainWindow.setPosition(safeX, safeY);
+      } catch (err) {
+        // Safe fallback
+      }
+    }
   }
 
   notifyFacingDirection(direction) {

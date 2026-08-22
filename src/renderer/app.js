@@ -1,33 +1,30 @@
-// ⚡ Spark & Astro Desktop UI Controller
+// ⚡ Spark, Astro & Dr. Octopus UI Controller (Ultra-low CPU & GPU Native)
 
 const SKINS = {
   dr_octopus: {
     name: 'Dr. Octopus',
-    type: 'video',
     assets: {
-      calm: '../../assets/dr_octopus/calm.mp4',
-      working: '../../assets/dr_octopus/working.mp4',
-      waiting: '../../assets/dr_octopus/waiting.mp4',
-      connecting: '../../assets/dr_octopus/waiting.mp4',
-      done: '../../assets/dr_octopus/done.mp4',
-      error: '../../assets/dr_octopus/error.mp4'
+      calm: '../../assets/dr_octopus/calm.gif',
+      working: '../../assets/dr_octopus/working.gif',
+      waiting: '../../assets/dr_octopus/waiting.gif',
+      connecting: '../../assets/dr_octopus/waiting.gif',
+      done: '../../assets/dr_octopus/done.gif',
+      error: '../../assets/dr_octopus/error.gif'
     }
   },
   astro: {
     name: 'Astro 8-Bit',
-    type: 'video',
     assets: {
-      calm: '../../assets/astro/Astro_8bit_calm.mp4',
-      working: '../../assets/astro/Astro_8bit_working.mp4',
-      waiting: '../../assets/astro/Astro_connecting.mp4',
-      connecting: '../../assets/astro/Astro_connecting.mp4',
-      done: '../../assets/astro/Astro_done.mp4',
-      error: '../../assets/astro/Astro_8bit_error.mp4'
+      calm: '../../assets/astro/calm.gif',
+      working: '../../assets/astro/working.gif',
+      waiting: '../../assets/astro/waiting.gif',
+      connecting: '../../assets/astro/waiting.gif',
+      done: '../../assets/astro/done.gif',
+      error: '../../assets/astro/error.gif'
     }
   },
   spark: {
     name: 'Classic Spark',
-    type: 'image',
     assets: {
       calm: '../../assets/gifs/spark_calm.gif',
       working: '../../assets/gifs/spark_working.gif',
@@ -55,10 +52,7 @@ const AGENT_COLORS = {
 };
 
 // DOM Elements
-const sparkCanvas = document.getElementById('sparkCanvas');
-const ctx = sparkCanvas.getContext('2d', { willReadFrequently: true });
 const sparkImg = document.getElementById('sparkImg');
-const sparkVideo = document.getElementById('sparkVideo');
 const speechBubbleContainer = document.getElementById('speechBubbleContainer');
 const agentBadge = document.getElementById('agentBadge');
 const agentNameText = document.getElementById('agentNameText');
@@ -75,138 +69,7 @@ let currentNotificationId = null;
 let bubbleTimer = null;
 
 // =========================================================
-// 🪄 FLOOD-FILL BOUNDARY TRANSPARENCY ENGINE
-// Preserves the dark visor, eyes, shadows, and internal details.
-// =========================================================
-let isRendering = false;
-let visitedBuffer = null;
-let queueBuffer = null;
-
-function startCanvasRenderLoop() {
-  if (isRendering) return;
-  isRendering = true;
-
-  function renderFrame() {
-    const width = sparkCanvas.width;
-    const height = sparkCanvas.height;
-
-    ctx.clearRect(0, 0, width, height);
-
-    const activeSkin = SKINS[currentSkin] || SKINS.astro;
-
-    if (activeSkin.type === 'video' && sparkVideo.readyState >= 2 && !sparkVideo.paused) {
-      const vw = sparkVideo.videoWidth || 1;
-      const vh = sparkVideo.videoHeight || 1;
-      const cropSize = Math.min(vw, vh);
-      const sx = (vw - cropSize) / 2;
-      const sy = (vh - cropSize) / 2;
-
-      ctx.drawImage(sparkVideo, sx, sy, cropSize, cropSize, 0, 0, width, height);
-      removeOuterBackgroundFloodFill(width, height);
-    } else if (activeSkin.type === 'image' && sparkImg.complete && sparkImg.naturalWidth > 0) {
-      const iw = sparkImg.naturalWidth;
-      const ih = sparkImg.naturalHeight;
-      const cropSize = Math.min(iw, ih);
-      const sx = (iw - cropSize) / 2;
-      const sy = (ih - cropSize) / 2;
-
-      ctx.drawImage(sparkImg, sx, sy, cropSize, cropSize, 0, 0, width, height);
-      removeOuterBackgroundFloodFill(width, height);
-    }
-
-    requestAnimationFrame(renderFrame);
-  }
-
-  requestAnimationFrame(renderFrame);
-}
-
-function removeOuterBackgroundFloodFill(w, h) {
-  try {
-    const totalPixels = w * h;
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const data = imgData.data;
-
-    if (!visitedBuffer || visitedBuffer.length !== totalPixels) {
-      visitedBuffer = new Uint8Array(totalPixels);
-      queueBuffer = new Int32Array(totalPixels);
-    } else {
-      visitedBuffer.fill(0);
-    }
-
-    // Check if pixel is dark background from outside
-    const isBgPixel = (idx) => {
-      const r = data[idx * 4];
-      const g = data[idx * 4 + 1];
-      const b = data[idx * 4 + 2];
-      return (r < 25 && g < 25 && b < 25);
-    };
-
-    let qLen = 0;
-
-    // 1. Seed queue with all 4 outer border edges
-    for (let x = 0; x < w; x++) {
-      const top = x;
-      const btm = (h - 1) * w + x;
-      if (isBgPixel(top)) { visitedBuffer[top] = 1; queueBuffer[qLen++] = top; }
-      if (isBgPixel(btm) && !visitedBuffer[btm]) { visitedBuffer[btm] = 1; queueBuffer[qLen++] = btm; }
-    }
-    for (let y = 0; y < h; y++) {
-      const lft = y * w;
-      const rgt = y * w + (w - 1);
-      if (isBgPixel(lft) && !visitedBuffer[lft]) { visitedBuffer[lft] = 1; queueBuffer[qLen++] = lft; }
-      if (isBgPixel(rgt) && !visitedBuffer[rgt]) { visitedBuffer[rgt] = 1; queueBuffer[qLen++] = rgt; }
-    }
-
-    // 2. BFS Flood Fill only towards contiguous outer background
-    let head = 0;
-    while (head < qLen) {
-      const curr = queueBuffer[head++];
-      data[curr * 4 + 3] = 0; // Pure transparency ONLY for outer background
-
-      const cx = curr % w;
-      const cy = (curr / w) | 0;
-
-      // Left Neighbor
-      if (cx > 0) {
-        const n = curr - 1;
-        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
-      }
-      // Right Neighbor
-      if (cx < w - 1) {
-        const n = curr + 1;
-        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
-      }
-      // Top Neighbor
-      if (cy > 0) {
-        const n = curr - w;
-        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
-      }
-      // Bottom Neighbor
-      if (cy < h - 1) {
-        const n = curr + w;
-        if (!visitedBuffer[n] && isBgPixel(n)) { visitedBuffer[n] = 1; queueBuffer[qLen++] = n; }
-      }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-  } catch (e) {
-    // Context fallback
-  }
-}
-
-sparkVideo.onerror = (e) => {
-  console.error('❌ Error loading video:', sparkVideo.src);
-  currentSkin = 'spark';
-  updateState({ state: currentCharacterState, skin: 'spark' });
-};
-
-sparkVideo.onloadeddata = () => {
-  console.log('🎬 Astro video ready to play:', sparkVideo.src);
-  sparkVideo.play().catch(e => console.log('Autoplay handled:', e));
-};
-
-// =========================================================
-// 🔄 STATE & CHARACTER UPDATE
+// 🔄 STATE & CHARACTER UPDATE (Direct GPU Rendering)
 // =========================================================
 function updateState(stateData) {
   const { state = 'calm', agent = currentSkin, message = '', skin } = stateData;
@@ -216,25 +79,14 @@ function updateState(stateData) {
     currentSkin = skin;
   }
 
-  // 1. Render active skin (Video or GIF)
-  const activeSkin = SKINS[currentSkin] || SKINS.astro;
+  // 1. Direct GPU rendering without CPU canvas overhead
+  const activeSkin = SKINS[currentSkin] || SKINS.dr_octopus;
   const assetUrl = activeSkin.assets[state] || activeSkin.assets.calm;
 
-  if (activeSkin.type === 'video') {
-    if (currentAssetLoaded !== assetUrl) {
-      currentAssetLoaded = assetUrl;
-      sparkVideo.src = assetUrl;
-      sparkVideo.load();
-      sparkVideo.play().catch(e => console.log('Autoplay handled:', e));
-    }
-  } else {
-    if (currentAssetLoaded !== assetUrl) {
-      currentAssetLoaded = assetUrl;
-      sparkImg.src = assetUrl;
-    }
+  if (currentAssetLoaded !== assetUrl) {
+    currentAssetLoaded = assetUrl;
+    sparkImg.src = assetUrl;
   }
-
-  startCanvasRenderLoop();
 
   // 2. Agent Theme
   applyAgentTheme(agent);
@@ -266,7 +118,7 @@ function updateState(stateData) {
 }
 
 function getStatusDefaultText(state, agent) {
-  const name = capitalize(agent || (currentSkin === 'astro' ? 'Astro' : 'Spark'));
+  const name = capitalize(agent || (SKINS[currentSkin] ? SKINS[currentSkin].name : 'Companion'));
   switch (state) {
     case 'working': return `${name} is coding...`;
     case 'waiting': return `${name} needs confirmation`;
@@ -279,16 +131,16 @@ function getStatusDefaultText(state, agent) {
 
 function applyAgentTheme(agentName) {
   const key = (agentName || currentSkin).toLowerCase();
-  const theme = AGENT_COLORS[key] || AGENT_COLORS.spark;
+  const theme = AGENT_COLORS[key] || AGENT_COLORS.dr_octopus;
 
   agentBadge.style.backgroundColor = theme.bg;
   agentBadge.style.color = theme.text;
   agentBadge.style.borderColor = theme.border;
-  agentNameText.textContent = capitalize(agentName || (currentSkin === 'astro' ? 'Astro' : 'Spark'));
+  agentNameText.textContent = capitalize(agentName || (SKINS[currentSkin] ? SKINS[currentSkin].name : 'Companion'));
 }
 
 // =========================================================
-// 💬 NOTIFICATIONS & CLIPPY-STYLE SPEECH BUBBLE
+// 💬 NOTIFICATIONS & SPEECH BUBBLE
 // =========================================================
 function showNotification(notif) {
   const {
@@ -306,7 +158,7 @@ function showNotification(notif) {
   currentNotificationId = id;
   if (bubbleTimer) clearTimeout(bubbleTimer);
 
-  // Play corresponding sound
+  // Play procedural Web Audio API sound
   if (sound && window.sparkAudio) {
     if (state === 'waiting') {
       window.sparkAudio.knockKnock();
@@ -407,8 +259,6 @@ avatarSection.addEventListener('click', (e) => {
 // =========================================================
 if (window.sparkBridge) {
   window.sparkBridge.onServerEvent((eventData) => {
-    console.log('📥 Event received in Renderer:', eventData);
-
     if (eventData.type === 'state_changed' || eventData.type === 'init') {
       updateState(eventData.data);
     } else if (eventData.type === 'notification') {
