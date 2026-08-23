@@ -1,7 +1,7 @@
 if (!module.paths.includes('C:/Users/ferna/.spark_desktop_runtime/node_modules')) {
   module.paths.push('C:/Users/ferna/.spark_desktop_runtime/node_modules');
 }
-const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const SparkServer = require('./server');
 const WanderEngine = require('./wander');
@@ -380,10 +380,54 @@ app.whenReady().then(() => {
     if (sparkServer) {
       sparkServer.handleActionSelected(id, action);
     }
-    if (wanderEngine) {
-      wanderEngine.resumeAfterAgent(4000);
+  });
+
+  ipcMain.on('user-prompt', (event, { targetAgent, prompt }) => {
+    if (sparkServer) {
+      const promptId = `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      const target = (targetAgent || 'all').toLowerCase();
+      
+      const payload = {
+        id: promptId,
+        targetAgent: target,
+        prompt: prompt,
+        author: 'user',
+        timestamp: Date.now()
+      };
+
+      if (!sparkServer.promptQueues.has(target)) {
+        sparkServer.promptQueues.set(target, []);
+      }
+      sparkServer.promptQueues.get(target).push(payload);
+
+      sparkServer.broadcast({
+        type: 'agent_prompt_dispatched',
+        data: payload
+      });
+
+      sparkServer.updateState({
+        state: 'working',
+        agent: target === 'all' ? 'spark' : target,
+        message: `Working on: "${prompt.slice(0, 30)}..."`
+      });
     }
   });
+
+  // Global Shortcut: Alt+Space to toggle Spark Quick-Input Command Hub
+  try {
+    globalShortcut.register('Alt+Space', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+        if (sparkServer) {
+          sparkServer.broadcast({ type: 'toggle_quick_input' });
+        }
+      }
+    });
+    console.log('⌨️ Global Shortcut [Alt+Space] registered for Spark Command Hub.');
+  } catch (err) {
+    console.warn('Could not register Alt+Space global shortcut:', err);
+  }
 
   ipcMain.on('window-close', () => {
     if (mainWindow) mainWindow.hide();

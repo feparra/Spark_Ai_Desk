@@ -29,8 +29,31 @@
     </div>
   </div>
 
+  <!-- ⌨️ Spark Quick-Input Command Hub (Multi-Agent Dispatcher) -->
+  <div id="quickInputCommandHub" class="quick-input-hub hidden">
+    <div class="quick-input-header">
+      <span class="quick-input-title">⚡ Command Hub</span>
+      <div id="agentPillsList" class="agent-pills-list">
+        <button class="agent-pill active" data-agent="all">🌐 All</button>
+        <button class="agent-pill" data-agent="claude">🟣 Claude</button>
+        <button class="agent-pill" data-agent="antigravity">🔵 Antigravity</button>
+        <button class="agent-pill" data-agent="openclaw">🟢 OpenClaw</button>
+      </div>
+      <button id="btnCloseQuickInput" class="btn-close-quick-input" title="Close (Esc)">✕</button>
+    </div>
+
+    <div class="quick-input-body">
+      <input type="text" id="quickPromptInput" class="quick-prompt-input" placeholder="Type prompt or @agent (Tab to switch)..." autocomplete="off" />
+      <button id="btnSendPrompt" class="btn-send-prompt" title="Send (Enter)">➤</button>
+    </div>
+
+    <div class="quick-input-footer">
+      <span class="quick-hint"><kbd>Tab</kbd> Switch agent &bull; <kbd>Enter</kbd> Send &bull; <kbd>Esc</kbd> Close</span>
+    </div>
+  </div>
+
   <!-- ⚡ Avatar Section (Dr. Octopus / Astro / Spark) -->
-  <div class="avatar-section" id="avatarSection" title="Double click to switch character | Drag to move">
+  <div class="avatar-section" id="avatarSection" title="Click to open Command Hub | Double click to switch character | Drag to move">
     <div class="spark-avatar-container" id="sparkAvatarContainer">
       <img id="sparkImg" class="spark-media" alt="Companion Avatar">
     </div>

@@ -72,8 +72,42 @@ def notify_spark(agent="spark", state="waiting", title="Attention", message="",
         print(f"⚠️ Error sending notification to Spark: {e}", file=sys.stderr)
         return None
 
+def get_spark_prompts(agent="all", ack=True, port=DEFAULT_PORT):
+    """Fetches queued prompts for this agent from Spark Command Hub."""
+    url = f"http://localhost:{port}/api/prompts?agent={agent}"
+    req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            prompts = data.get("prompts", [])
+            if ack and prompts:
+                for p in prompts:
+                    ack_req = urllib.request.Request(
+                        f"http://localhost:{port}/api/prompts/ack",
+                        data=json.dumps({"id": p["id"], "agent": agent}).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}
+                    )
+                    urllib.request.urlopen(ack_req, timeout=3)
+            return prompts
+    except Exception as e:
+        print(f"⚠️ Error fetching prompts from Spark: {e}", file=sys.stderr)
+        return []
+
+def dispatch_spark_prompt(target="all", prompt="", port=DEFAULT_PORT):
+    """Dispatches a prompt to a target agent queue via Spark."""
+    url = f"http://localhost:{port}/api/prompt"
+    payload = {"targetAgent": target, "prompt": prompt}
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"⚠️ Error dispatching prompt to Spark: {e}", file=sys.stderr)
+        return None
+
 def main():
-    parser = argparse.ArgumentParser(description="⚡ Spark AI Desktop CLI Notifier")
+    parser = argparse.ArgumentParser(description="⚡ Spark AI Desktop CLI Notifier & Command Hub")
     parser.add_argument("--state", type=str, default="calm", help="State: calm, working, waiting, done, error, connecting")
     parser.add_argument("--agent", type=str, default="spark", help="Agent name: claude, antigravity, hermes, openclaw, codex, etc.")
     parser.add_argument("--title", type=str, default="", help="Title for the interactive speech bubble")
@@ -81,9 +115,27 @@ def main():
     parser.add_argument("--actions", nargs="+", default=None, help="List of action buttons (e.g. Approve Reject)")
     parser.add_argument("--wait", action="store_true", help="Wait for the user to click an action button")
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
+    parser.add_argument("--get-prompts", action="store_true", help="Fetch pending user prompts for --agent")
+    parser.add_argument("--dispatch", type=str, default="", help="Dispatch a prompt to --agent")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Spark server port")
 
     args = parser.parse_args()
+
+    if args.get_prompts:
+        prompts = get_spark_prompts(agent=args.agent, ack=True, port=args.port)
+        if prompts:
+            print(f"📥 Found {len(prompts)} pending prompt(s) for [{args.agent}]:")
+            for idx, p in enumerate(prompts, 1):
+                print(f"  {idx}. [{p['targetAgent'].upper()}]: {p['prompt']}")
+        else:
+            print(f"📭 No pending prompts for [{args.agent}].")
+        return
+
+    if args.dispatch:
+        res = dispatch_spark_prompt(target=args.agent, prompt=args.dispatch, port=args.port)
+        if res and res.get("ok"):
+            print(f"🚀 Prompt dispatched to [{args.agent}]: {args.dispatch}")
+        return
 
     if args.title or args.actions or args.wait:
         action = notify_spark(

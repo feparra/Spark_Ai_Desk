@@ -29,11 +29,17 @@ if sys.stdout.encoding != 'utf-8':
 
 SPARK_PORT = 7890
 
-def send_spark_request(endpoint, data=None):
+def send_spark_request(endpoint, data=None, method=None):
     url = f"http://localhost:{SPARK_PORT}{endpoint}"
-    req_data = json.dumps(data).encode('utf-8') if data else None
-    headers = {"Content-Type": "application/json"} if data else {}
+    req_data = json.dumps(data).encode('utf-8') if data is not None else None
+    headers = {"Content-Type": "application/json"} if data is not None else {}
     req = urllib.request.Request(url, data=req_data, headers=headers)
+    if method:
+        req.method = method
+    elif data is None:
+        req.method = "GET"
+    else:
+        req.method = "POST"
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             return json.loads(resp.read().decode('utf-8'))
@@ -88,6 +94,29 @@ TOOLS_LIST = [
         "inputSchema": {
             "type": "object",
             "properties": {}
+        }
+    },
+    {
+        "name": "spark_receive_prompt",
+        "description": "Fetches pending user instructions/prompts routed specifically to this agent or to all agents from the Spark Desktop Command Hub.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent_name": {"type": "string", "description": "Name of the agent (e.g. claude, antigravity, openclaw, all)", "default": "all"},
+                "auto_ack": {"type": "boolean", "description": "Whether to automatically acknowledge and remove retrieved prompts from queue", "default": True}
+            }
+        }
+    },
+    {
+        "name": "spark_dispatch_prompt",
+        "description": "Dispatches a user prompt to a specific agent queue via the Spark Command Hub.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_agent": {"type": "string", "description": "Target agent: claude, antigravity, openclaw, or all"},
+                "prompt": {"type": "string", "description": "The command or instruction content"}
+            },
+            "required": ["target_agent", "prompt"]
         }
     }
 ]
@@ -166,14 +195,38 @@ def handle_json_rpc(line):
             return
 
         elif tool_name == "spark_switch_character":
-            payload = {"skin": arguments.get("character", "capy")}
-            res = send_spark_request("/api/skin", payload)
-            send_tool_result(req_id, f"Switched companion to {payload['skin']}")
+            char_name = arguments.get("character", "capy")
+            res = send_spark_request("/api/skin", {"skin": char_name})
+            send_tool_result(req_id, f"Switched character skin to: {char_name}")
             return
 
         elif tool_name == "spark_get_status":
-            res = send_spark_request("/api/status")
-            send_tool_result(req_id, json.dumps(res))
+            res = send_spark_request("/api/status", None, method="GET")
+            send_tool_result(req_id, f"Spark Status: {json.dumps(res, indent=2)}")
+            return
+
+        elif tool_name == "spark_receive_prompt":
+            agent = arguments.get("agent_name", "all")
+            auto_ack = arguments.get("auto_ack", True)
+            res = send_spark_request(f"/api/prompts?agent={agent}", None, method="GET")
+            prompts = res.get("prompts", [])
+            
+            if auto_ack and prompts:
+                for p in prompts:
+                    send_spark_request("/api/prompts/ack", {"id": p["id"], "agent": agent})
+                    
+            send_tool_result(req_id, json.dumps({
+                "agent": agent,
+                "count": len(prompts),
+                "prompts": prompts
+            }, indent=2))
+            return
+
+        elif tool_name == "spark_dispatch_prompt":
+            target = arguments.get("target_agent", "all")
+            prompt = arguments.get("prompt", "")
+            res = send_spark_request("/api/prompt", {"targetAgent": target, "prompt": prompt})
+            send_tool_result(req_id, f"Prompt successfully queued for {target.upper()}: {prompt}")
             return
 
         else:

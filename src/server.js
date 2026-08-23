@@ -16,6 +16,7 @@ class SparkServer {
     this.port = port;
     this.clients = new Set();
     this.pendingResolvers = new Map(); // id -> callback
+    this.promptQueues = new Map(); // agentId -> Array<Prompt>
     this.currentState = {
       state: 'calm',
       agent: 'spark',
@@ -48,6 +49,16 @@ class SparkServer {
     if (req.method === 'GET' && pathname === '/api/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, data: this.currentState }));
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/prompts') {
+      const agent = (parsedUrl.query.agent || 'all').toLowerCase();
+      const specific = this.promptQueues.get(agent) || [];
+      const globalPrompts = agent !== 'all' ? (this.promptQueues.get('all') || []) : [];
+      const combined = [...specific, ...globalPrompts];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, agent, prompts: combined }));
       return;
     }
 
@@ -133,6 +144,59 @@ class SparkServer {
           this.handleActionSelected(id, action);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, id, action }));
+          return;
+        }
+
+        if (pathname === '/api/prompt') {
+          const promptId = json.id || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+          const targetAgent = (json.targetAgent || 'all').toLowerCase();
+          const promptText = json.prompt || '';
+          const author = json.author || 'user';
+
+          const promptPayload = {
+            id: promptId,
+            targetAgent,
+            prompt: promptText,
+            author,
+            timestamp: Date.now()
+          };
+
+          if (!this.promptQueues.has(targetAgent)) {
+            this.promptQueues.set(targetAgent, []);
+          }
+          this.promptQueues.get(targetAgent).push(promptPayload);
+
+          // Broadcast to connected agents and WebSockets
+          this.broadcast({
+            type: 'agent_prompt_dispatched',
+            data: promptPayload
+          });
+
+          // Set visual working state for companion
+          this.updateState({
+            state: 'working',
+            agent: targetAgent === 'all' ? 'spark' : targetAgent,
+            message: `Dispatching task to ${targetAgent.toUpperCase()}...`
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, id: promptId, targetAgent, status: 'queued' }));
+          return;
+        }
+
+        if (pathname === '/api/prompts/ack') {
+          const { id, agent = 'all' } = json;
+          const agentKey = agent.toLowerCase();
+          if (this.promptQueues.has(agentKey)) {
+            const remaining = this.promptQueues.get(agentKey).filter(p => p.id !== id);
+            this.promptQueues.set(agentKey, remaining);
+          }
+          if (this.promptQueues.has('all')) {
+            const remainingAll = this.promptQueues.get('all').filter(p => p.id !== id);
+            this.promptQueues.set('all', remainingAll);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, acknowledgedId: id }));
           return;
         }
 

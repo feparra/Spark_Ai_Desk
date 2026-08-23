@@ -275,8 +275,139 @@ btnCloseBubble.addEventListener('click', () => {
   hideBubble();
 });
 
+// =========================================================
+// ⌨️ QUICK-INPUT COMMAND HUB (Multi-Agent Dispatcher)
+// =========================================================
+const quickInputCommandHub = document.getElementById('quickInputCommandHub');
+const agentPillsList = document.getElementById('agentPillsList');
+const btnCloseQuickInput = document.getElementById('btnCloseQuickInput');
+const quickPromptInput = document.getElementById('quickPromptInput');
+const btnSendPrompt = document.getElementById('btnSendPrompt');
+
+let selectedTargetAgent = 'all';
+const AGENT_KEYS = ['all', 'claude', 'antigravity', 'openclaw'];
+
+function openQuickInput(target = 'all') {
+  hideBubble();
+  quickInputCommandHub.classList.remove('hidden');
+  selectAgentPill(target);
+  quickPromptInput.value = '';
+  quickPromptInput.focus();
+  if (window.sparkAudio) window.sparkAudio.popNotification();
+}
+
+function closeQuickInput() {
+  quickInputCommandHub.classList.add('hidden');
+  quickPromptInput.value = '';
+}
+
+function selectAgentPill(agentName) {
+  selectedTargetAgent = agentName.toLowerCase();
+  const pills = agentPillsList.querySelectorAll('.agent-pill');
+  pills.forEach(p => {
+    if (p.dataset.agent === selectedTargetAgent) {
+      p.classList.add('active');
+    } else {
+      p.classList.remove('active');
+    }
+  });
+
+  const displayTarget = selectedTargetAgent === 'all' ? 'All Agents' : capitalize(selectedTargetAgent);
+  quickPromptInput.placeholder = `Command ${displayTarget} (Tab to switch)...`;
+}
+
+function submitQuickPrompt() {
+  const text = quickPromptInput.value.trim();
+  if (!text) return;
+
+  // Auto-detect @mentions
+  let finalTarget = selectedTargetAgent;
+  let cleanText = text;
+
+  if (text.startsWith('@claude')) {
+    finalTarget = 'claude';
+    cleanText = text.replace(/^@claude\s*/i, '');
+  } else if (text.startsWith('@antigravity') || text.startsWith('@gemini')) {
+    finalTarget = 'antigravity';
+    cleanText = text.replace(/^@(antigravity|gemini)\s*/i, '');
+  } else if (text.startsWith('@openclaw') || text.startsWith('@hermes')) {
+    finalTarget = 'openclaw';
+    cleanText = text.replace(/^@(openclaw|hermes)\s*/i, '');
+  } else if (text.startsWith('@all')) {
+    finalTarget = 'all';
+    cleanText = text.replace(/^@all\s*/i, '');
+  }
+
+  if (window.sparkAudio) window.sparkAudio.buttonClick();
+
+  // Send via bridge or direct HTTP
+  if (window.sparkBridge) {
+    window.sparkBridge.sendPrompt(finalTarget, cleanText);
+  } else {
+    fetch('http://localhost:7890/api/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetAgent: finalTarget, prompt: cleanText })
+    }).catch(e => console.error(e));
+  }
+
+  // Visual feedback
+  statusPillText.textContent = `🚀 Dispatched to ${finalTarget.toUpperCase()}`;
+  closeQuickInput();
+}
+
+// Agent Pill Clicks
+agentPillsList.addEventListener('click', (e) => {
+  const pill = e.target.closest('.agent-pill');
+  if (pill && pill.dataset.agent) {
+    if (window.sparkAudio) window.sparkAudio.buttonClick();
+    selectAgentPill(pill.dataset.agent);
+    quickPromptInput.focus();
+  }
+});
+
+// Close button
+btnCloseQuickInput.addEventListener('click', () => {
+  if (window.sparkAudio) window.sparkAudio.buttonClick();
+  closeQuickInput();
+});
+
+// Send button
+btnSendPrompt.addEventListener('click', () => {
+  submitQuickPrompt();
+});
+
+// Keyboard controls
+quickPromptInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitQuickPrompt();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeQuickInput();
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    if (window.sparkAudio) window.sparkAudio.buttonClick();
+    const currentIdx = AGENT_KEYS.indexOf(selectedTargetAgent);
+    const nextIdx = (currentIdx + 1) % AGENT_KEYS.length;
+    selectAgentPill(AGENT_KEYS[nextIdx]);
+  }
+});
+
+// Global Esc to close any open prompt/bubble
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!quickInputCommandHub.classList.contains('hidden')) {
+      closeQuickInput();
+    } else if (!speechBubbleContainer.classList.contains('hidden')) {
+      hideBubble();
+    }
+  }
+});
+
 // Double click on avatar cycles through all available character skins
-avatarSection.addEventListener('dblclick', () => {
+avatarSection.addEventListener('dblclick', (e) => {
+  e.stopPropagation();
   const skinKeys = Object.keys(SKINS);
   const nextIdx = (skinKeys.indexOf(currentSkin) + 1) % skinKeys.length;
   currentSkin = skinKeys[nextIdx];
@@ -292,21 +423,12 @@ avatarSection.addEventListener('contextmenu', (e) => {
   }
 });
 
-// Single click on avatar shows greeting
+// Single click on avatar opens Quick-Input Command Hub
 avatarSection.addEventListener('click', (e) => {
-  if (speechBubbleContainer.classList.contains('hidden')) {
-    if (window.sparkAudio) window.sparkAudio.popNotification();
-    const activeName = SKINS[currentSkin].name;
-    showNotification({
-      id: 'greet_' + Date.now(),
-      agent: currentSkin,
-      state: 'calm',
-      title: `Hi! I'm your desktop companion (${activeName})`,
-      message: "I'm active and ready to alert you about your AI agents' tasks.\n\n💡 Tip: Double-click me to switch characters.",
-      actions: ['Got it!'],
-      timeout: 8,
-      sound: false
-    });
+  if (quickInputCommandHub.classList.contains('hidden')) {
+    openQuickInput();
+  } else {
+    closeQuickInput();
   }
 });
 
@@ -320,12 +442,22 @@ if (window.sparkBridge) {
     } else if (eventData.type === 'notification') {
       updateState(eventData.data);
       showNotification(eventData.data);
+    } else if (eventData.type === 'toggle_quick_input') {
+      if (quickInputCommandHub.classList.contains('hidden')) {
+        openQuickInput();
+      } else {
+        closeQuickInput();
+      }
+    } else if (eventData.type === 'agent_prompt_dispatched') {
+      if (window.sparkAudio) window.sparkAudio.popNotification();
+      statusPillText.textContent = `⚡ Sent to ${eventData.data.targetAgent.toUpperCase()}: "${eventData.data.prompt.slice(0, 20)}..."`;
     } else if (eventData.type === 'dismiss') {
       hideBubble();
+      closeQuickInput();
     } else if (eventData.type === 'set_skin') {
       updateState({ state: currentCharacterState, skin: eventData.skin });
     } else if (eventData.type === 'agents_radar_update') {
-      if (currentCharacterState === 'calm') {
+      if (currentCharacterState === 'calm' && quickInputCommandHub.classList.contains('hidden')) {
         statusPillText.textContent = eventData.pillMessage;
       }
     } else if (eventData.type === 'facing_changed') {
@@ -355,10 +487,11 @@ setTimeout(() => {
     id: 'startup_welcome',
     agent: 'capy',
     state: 'calm',
-    title: 'Capy is active! ☕🦫',
-    message: "I'm your chill executive assistant. Coffee in hand, ready for tasks!\n\n💡 Double-click me to switch between Capy, Dr. Octopus, Astro, and Spark.",
+    title: 'Command Hub Active! ⚡🦫',
+    message: "Click me or press Alt+Space to open the Multi-Agent Command Bar!\n\n💡 Tip: Double-click me to switch between Capy, Dr. Octopus, Kitty, Piper, Llama, and Astro.",
     actions: ['Got it!'],
     timeout: 10,
     sound: true
   });
 }, 800);
+
