@@ -7,7 +7,7 @@ const { exec } = require('child_process');
 class AgentRadar {
   constructor(sparkServer, options = {}) {
     this.sparkServer = sparkServer;
-    this.scanIntervalMs = options.scanIntervalMs || 8000; // Scan every 8 seconds
+    this.scanIntervalMs = options.scanIntervalMs || 12000; // Scan every 12 seconds for low CPU
     this.timer = null;
     this.knownAgents = new Set();
     this.activeAgents = new Set();
@@ -27,7 +27,20 @@ class AgentRadar {
   async scan() {
     const discovered = new Set();
 
-    // 1. Scan Local AI Ports
+    // 1. Check Live Connected Sessions first (last 60s)
+    const now = Date.now();
+    const liveConnected = [];
+    if (this.sparkServer && this.sparkServer.activeSessions) {
+      for (const [agentKey, sess] of this.sparkServer.activeSessions.entries()) {
+        if (now - sess.lastSeen < 60000) {
+          const capitalized = agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
+          liveConnected.push(capitalized);
+          discovered.add(capitalized);
+        }
+      }
+    }
+
+    // 2. Scan Local AI Ports
     await Promise.all([
       this.checkPort(11434, 'Ollama', discovered),
       this.checkPort(1234, 'LM Studio', discovered),
@@ -35,37 +48,26 @@ class AgentRadar {
       this.checkPort(8000, 'Hermes API', discovered)
     ]);
 
-    // 2. Scan Running Processes in Windows (PowerShell / tasklist lightweight query)
+    // 3. Scan Running Processes in Windows (PowerShell / tasklist lightweight query)
     await this.scanProcesses(discovered);
 
-    // 3. Evaluate diff
+    // 4. Build status text
     const currentList = Array.from(discovered);
-    const prevList = Array.from(this.activeAgents);
+    this.activeAgents = discovered;
 
-    const isDifferent = currentList.length !== prevList.length || currentList.some(a => !this.activeAgents.has(a));
-
-    if (isDifferent) {
-      this.activeAgents = discovered;
-
-      // Broadcast update to UI
-      const pillMessage = currentList.length > 0
-        ? `🟢 Active: ${currentList.join(', ')}`
-        : `🔍 Radar: Scanning for agents...`;
-
-      this.sparkServer.broadcast({
-        type: 'agents_radar_update',
-        activeAgents: currentList,
-        pillMessage
-      });
-
-      // Greet newly detected agents
-      for (const agent of currentList) {
-        if (!this.hasWelcomed.has(agent)) {
-          this.hasWelcomed.add(agent);
-          this.greetNewAgent(agent);
-        }
-      }
+    let pillMessage = '🔍 Radar: Scanning for agents...';
+    if (liveConnected.length > 0) {
+      pillMessage = `🟢 Connected: ${liveConnected.join(', ')}`;
+    } else if (currentList.length > 0) {
+      pillMessage = `🟡 Detected: ${currentList.join(', ')}`;
     }
+
+    this.sparkServer.broadcast({
+      type: 'agents_radar_update',
+      activeAgents: currentList,
+      liveConnected,
+      pillMessage
+    });
   }
 
   checkPort(port, agentName, discoveredSet) {

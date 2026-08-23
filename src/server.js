@@ -17,6 +17,7 @@ class SparkServer {
     this.clients = new Set();
     this.pendingResolvers = new Map(); // id -> callback
     this.promptQueues = new Map(); // agentId -> Array<Prompt>
+    this.activeSessions = new Map(); // agentId -> { lastSeen: Date, channel: 'mcp'|'http' }
     this.currentState = {
       state: 'calm',
       agent: 'spark',
@@ -29,6 +30,15 @@ class SparkServer {
       this.wss = new WebSocket.Server({ server: this.server });
       this.setupWebSockets();
     }
+  }
+
+  touchSession(agentName, channel = 'http') {
+    if (!agentName) return;
+    const key = agentName.toLowerCase();
+    this.activeSessions.set(key, {
+      lastSeen: Date.now(),
+      channel
+    });
   }
 
   handleHttp(req, res) {
@@ -54,6 +64,7 @@ class SparkServer {
 
     if (req.method === 'GET' && pathname === '/api/prompts') {
       const agent = (parsedUrl.query.agent || 'all').toLowerCase();
+      this.touchSession(agent, 'http_poll');
       const specific = this.promptQueues.get(agent) || [];
       const globalPrompts = agent !== 'all' ? (this.promptQueues.get('all') || []) : [];
       const combined = [...specific, ...globalPrompts];
@@ -93,6 +104,7 @@ class SparkServer {
 
         if (pathname === '/api/state') {
           const { state = 'calm', agent = 'spark', message = '', skin } = json;
+          this.touchSession(agent, 'http_state');
           this.updateState({ state, agent, message, skin });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, state, agent, message, skin }));
@@ -102,6 +114,7 @@ class SparkServer {
         if (pathname === '/api/notify') {
           const id = json.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
           const agent = json.agent || 'spark';
+          this.touchSession(agent, 'http_notify');
           const state = json.state || 'waiting';
           const title = json.title || 'Attention Required';
           const message = json.message || '';
