@@ -3,9 +3,11 @@ if (!module.paths.includes('C:/Users/ferna/.spark_desktop_runtime/node_modules')
 }
 const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
+const os = require('os');
 const SparkServer = require('./server');
 const WanderEngine = require('./wander');
 const AgentRadar = require('./radar');
+const HermesAdapter = require('./hermesAdapter');
 
 let mainWindow = null;
 let tray = null;
@@ -243,13 +245,13 @@ function buildContextMenu() {
   ]);
 }
 
-function createSparkWindow() {
+function createSparkWindow(isLite) {
   const cursorPoint = screen.getCursorScreenPoint();
   const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
   const workArea = currentDisplay.workArea;
 
   const winWidth = 380;
-  const winHeight = 460;
+  const winHeight = 560;
   
   // Center on active display
   const posX = Math.round(workArea.x + (workArea.width - winWidth) / 2);
@@ -331,16 +333,57 @@ function setupTray() {
 }
 
 app.whenReady().then(() => {
-  createSparkWindow();
+  // Lite mode detection (main process)
+  const totalRamGB = os.totalmem() / (1024 * 1024 * 1024);
+  const isLite = process.env.SPARK_LITE === '1' || totalRamGB <= 8;
+  if (isLite) {
+    app.commandLine.appendSwitch('disable-cache');
+    app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+    console.log(`⚡ Lite mode detected (RAM: ${totalRamGB.toFixed(1)}GB) — applying optimizations`);
+  }
+
+  // Initialize messageStore
+  let messageStore = null;
+  try {
+    messageStore = require('./store/messageStore');
+    messageStore.initDb();
+  } catch (e) {
+    console.warn('⚠️ messageStore init failed:', e.message);
+  }
+
+  createSparkWindow(isLite);
+
+  // Pass ?lite=1 to renderer if in lite mode
+  if (isLite && mainWindow) {
+    mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { lite: '1' } });
+  }
+
   setupTray();
 
   sparkServer = new SparkServer(PORT);
   sparkServer.start().then(() => {
     console.log('⚡ Spark Server initialized successfully');
-    // Start background agent radar
-    agentRadar = new AgentRadar(sparkServer);
+    // Start background agent radar with configurable scan interval
+    const scanIntervalMs = isLite ? 30000 : 12000;
+    agentRadar = new AgentRadar(sparkServer, { scanIntervalMs });
     agentRadar.start();
   });
+
+  // Initialize HermesAdapter
+  const hermesAdapter = new HermesAdapter(sparkServer, {
+    apiUrl: process.env.HERMES_API_URL,
+    apiKey: process.env.HERMES_API_KEY,
+    model: process.env.HERMES_MODEL
+  });
+  if (process.env.HERMES_API_URL) {
+    hermesAdapter.enable();
+  }
+  // Wire onChatMessage hook — called when user sends a message via /api/chat/send
+  sparkServer.onChatMessage = (sessionId, content, agent) => {
+    if (hermesAdapter.enabled) {
+      hermesAdapter.sendChatMessage(sessionId, content, agent);
+    }
+  };
 
   sparkServer.broadcast = ((originalBroadcast) => {
     return function (messageObj) {
@@ -446,7 +489,20 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  // Close messageStore DB before quitting
+  try {
+    const messageStore = require('./store/messageStore');
+    if (messageStore) messageStore.closeDb();
+  } catch (e) {}
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Cleanup on quit
+app.on('before-quit', () => {
+  try {
+    const messageStore = require('./store/messageStore');
+    if (messageStore) messageStore.closeDb();
+  } catch (e) {}
 });

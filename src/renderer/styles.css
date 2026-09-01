@@ -1,4 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Local fonts — fallback to system fonts if woff2 files unavailable */
+@font-face {
+  font-family: 'Outfit';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('fonts/outfit-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('fonts/outfit-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('fonts/outfit-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-400.woff2') format('woff2');
+}
 
 :root {
   --bg-bubble: rgba(18, 22, 34, 0.88);
@@ -6,6 +34,8 @@
   --bubble-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.2);
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
+  --font-main: 'Outfit', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
   
   /* Agent Colors */
   --agent-spark: #38bdf8;
@@ -24,7 +54,7 @@
 }
 
 body {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-main);
   background: transparent;
   width: 100vw;
   height: 100vh;
@@ -152,7 +182,7 @@ body {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #a5f3fc;
   max-height: 70px;
@@ -171,7 +201,7 @@ body {
   flex: 1;
   padding: 7px 12px;
   border-radius: 10px;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-main);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -490,4 +520,50 @@ body {
     transform: scale(0.8);
     opacity: 0.35;
   }
+}
+
+/* =========================================================
+   LITE MODE — no blur, solid bg, no animations
+   ========================================================= */
+body.lite-mode .speech-bubble {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+body.lite-mode .quick-input-hub {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+body.lite-mode .status-pill {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+body.lite-mode .speech-bubble-container {
+  animation: none;
+}
+
+body.lite-mode .spark-shadow {
+  animation: none;
+  opacity: 0.5;
+}
+
+body.lite-mode .agent-badge .dot {
+  animation: none;
+}
+
+body.lite-mode .quick-input-hub {
+  animation: none;
+}
+
+body.lite-mode .spark-avatar-container {
+  transition: none;
+}
+
+body.lite-mode .spark-avatar-container:hover {
+  transform: translateZ(0);
 }

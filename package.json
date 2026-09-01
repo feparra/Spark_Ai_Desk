@@ -1,18 +1,19 @@
 {
   "name": "spark-desktop",
-  "version": "1.0.0",
-  "description": "Spark AI - Persistent Desktop Companion for AI Agents (Clippy for Modern Devs)",
+  "version": "2.0.0",
+  "description": "Spark AI — Bidirectional Messaging Center for AI Agents (Clippy for Modern Devs)",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "lite": "SPARK_LITE=1 electron src/main.js",
+    "chat": "electron src/main.js"
   },
-  "keywords": ["spark", "ai", "clippy", "desktop-companion", "agents", "antigravity", "claude", "overlay"],
+  "keywords": ["spark", "ai", "clippy", "desktop-companion", "agents", "antigravity", "claude", "overlay", "chat", "messaging", "ai-agent"],
   "author": "Spark AI",
   "license": "MIT",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
+    "better-sqlite3": "^11.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

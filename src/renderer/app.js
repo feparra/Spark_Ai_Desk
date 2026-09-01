@@ -466,18 +466,12 @@ avatarSection.addEventListener('contextmenu', (e) => {
   }
 });
 
-// Single click on avatar — DISABLED (Quick-Input Hub desactivado)
-// Antes abría el Quick-Input. Ahora no hace nada para evitar escritura.
-// Para reactivar, descomentar el bloque de abajo
-/*
+// Single click on avatar — opens Chat Panel
 avatarSection.addEventListener('click', (e) => {
-  if (quickInputCommandHub.classList.contains('hidden')) {
-    openQuickInput();
-  } else {
-    closeQuickInput();
+  if (window.ChatPanel) {
+    ChatPanel.toggle();
   }
 });
-*/
 
 // =========================================================
 // 🔌 LISTEN TO ELECTRON IPC / BACKEND EVENTS
@@ -537,14 +531,24 @@ function capitalize(str) {
 // Initial initialization with Capy
 updateState({ state: 'calm', agent: 'capy', skin: 'capy', message: 'Capy Ready' });
 
+// Lite mode detection
+if (window.LiteMode) {
+  LiteMode.detect();
+}
+
+// Initialize Chat Panel
+if (window.ChatPanel) {
+  ChatPanel.init();
+}
+
 // Startup welcome bubble
 setTimeout(() => {
   showNotification({
     id: 'startup_welcome',
     agent: 'capy',
     state: 'calm',
-    title: 'Command Hub Active! ⚡🦫',
-    message: "Click me or press Alt+Space to open the Multi-Agent Command Bar!\n\n💡 Tip: Double-click me to switch between Capy, Dr. Octopus, Kitty, Piper, Llama, and Astro.",
+    title: 'Spark Messaging Center! ⚡🦫',
+    message: "Click me to open the Chat Panel! Chat with AI agents, send messages, and get streaming responses.\n\n💡 Double-click me to switch between characters.",
     actions: ['Got it!'],
     timeout: 10,
     sound: true

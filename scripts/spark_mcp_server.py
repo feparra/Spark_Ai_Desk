@@ -9,7 +9,7 @@ Usage with Claude / Cursor / Antigravity config:
   "mcpServers": {
     "spark-companion": {
       "command": "python",
-      "args": ["g:/My Drive/04_Desarrollo_AI/Spark_Desktop/scripts/spark_mcp_server.py"]
+      "args": ["C:/Users/FERNA/Documents/Spark_Desktop/scripts/spark_mcp_server.py"]
     }
   }
 }
@@ -117,6 +117,72 @@ TOOLS_LIST = [
                 "prompt": {"type": "string", "description": "The command or instruction content"}
             },
             "required": ["target_agent", "prompt"]
+        }
+    },
+    {
+        "name": "spark_chat_create_session",
+        "description": "Creates a new chat session in the Spark messaging center for bidirectional communication.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string", "description": "Agent name (e.g. claude, hermes, spark)", "default": "spark"},
+                "title": {"type": "string", "description": "Session title", "default": "New Conversation"}
+            }
+        }
+    },
+    {
+        "name": "spark_chat_reply",
+        "description": "Sends a reply message from an agent to a chat session. The message appears in the Spark chat panel immediately.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "The chat session ID to reply to"},
+                "content": {"type": "string", "description": "The reply message content"},
+                "agent": {"type": "string", "description": "Agent name sending the reply", "default": "spark"}
+            },
+            "required": ["session_id", "content"]
+        }
+    },
+    {
+        "name": "spark_chat_stream_chunk",
+        "description": "Sends a streaming chunk to a chat session for progressive rendering. Use done=true on the final chunk with full_content.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "The chat session ID"},
+                "stream_id": {"type": "string", "description": "Unique stream identifier for this response"},
+                "chunk": {"type": "string", "description": "Text chunk to append", "default": ""},
+                "done": {"type": "boolean", "description": "Whether this is the final chunk", "default": False},
+                "full_content": {"type": "string", "description": "Complete response text (only on done=true)", "default": ""},
+                "agent": {"type": "string", "description": "Agent name", "default": "spark"}
+            },
+            "required": ["session_id", "stream_id"]
+        }
+    },
+    {
+        "name": "spark_chat_set_typing",
+        "description": "Toggles the typing indicator in the Spark chat panel to show the agent is working on a response.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "The chat session ID"},
+                "agent": {"type": "string", "description": "Agent name", "default": "spark"},
+                "is_typing": {"type": "boolean", "description": "Whether the agent is currently typing", "default": True}
+            },
+            "required": ["session_id"]
+        }
+    },
+    {
+        "name": "spark_chat_get_messages",
+        "description": "Retrieves message history for a chat session from the Spark messaging center.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "The chat session ID"},
+                "limit": {"type": "integer", "description": "Max messages to return", "default": 50},
+                "offset": {"type": "integer", "description": "Number of messages to skip", "default": 0}
+            },
+            "required": ["session_id"]
         }
     }
 ]
@@ -227,6 +293,77 @@ def handle_json_rpc(line):
             prompt = arguments.get("prompt", "")
             res = send_spark_request("/api/prompt", {"targetAgent": target, "prompt": prompt})
             send_tool_result(req_id, f"Prompt successfully queued for {target.upper()}: {prompt}")
+            return
+
+        elif tool_name == "spark_chat_create_session":
+            agent = arguments.get("agent", "spark")
+            title = arguments.get("title", "New Conversation")
+            res = send_spark_request("/api/chat/session", {"agent": agent, "title": title})
+            if res and res.get("ok"):
+                send_tool_result(req_id, f"Chat session created: {json.dumps(res.get('session', {}))}")
+            else:
+                send_tool_result(req_id, f"Failed to create session: {json.dumps(res)}")
+            return
+
+        elif tool_name == "spark_chat_reply":
+            session_id = arguments.get("session_id", "")
+            content = arguments.get("content", "")
+            agent = arguments.get("agent", "spark")
+            res = send_spark_request("/api/chat/reply", {
+                "session_id": session_id,
+                "content": content,
+                "agent": agent
+            })
+            if res and res.get("ok"):
+                send_tool_result(req_id, f"Reply sent to session {session_id}")
+            else:
+                send_tool_result(req_id, f"Failed to send reply: {json.dumps(res)}")
+            return
+
+        elif tool_name == "spark_chat_stream_chunk":
+            session_id = arguments.get("session_id", "")
+            stream_id = arguments.get("stream_id", "")
+            chunk = arguments.get("chunk", "")
+            done = arguments.get("done", False)
+            full_content = arguments.get("full_content", "")
+            agent = arguments.get("agent", "spark")
+            res = send_spark_request("/api/chat/stream", {
+                "session_id": session_id,
+                "stream_id": stream_id,
+                "chunk": chunk,
+                "done": done,
+                "full_content": full_content,
+                "agent": agent
+            })
+            send_tool_result(req_id, f"Stream chunk sent (done={done})")
+            return
+
+        elif tool_name == "spark_chat_set_typing":
+            session_id = arguments.get("session_id", "")
+            agent = arguments.get("agent", "spark")
+            is_typing = arguments.get("is_typing", True)
+            res = send_spark_request("/api/chat/typing", {
+                "session_id": session_id,
+                "agent": agent,
+                "is_typing": is_typing
+            })
+            send_tool_result(req_id, f"Typing indicator set to {is_typing}")
+            return
+
+        elif tool_name == "spark_chat_get_messages":
+            session_id = arguments.get("session_id", "")
+            limit = arguments.get("limit", 50)
+            offset = arguments.get("offset", 0)
+            res = send_spark_request(f"/api/chat/messages?session={session_id}&limit={limit}&offset={offset}", None, method="GET")
+            if res and res.get("ok"):
+                messages = res.get("messages", [])
+                send_tool_result(req_id, json.dumps({
+                    "session_id": session_id,
+                    "count": len(messages),
+                    "messages": messages
+                }, indent=2))
+            else:
+                send_tool_result(req_id, f"Failed to get messages: {json.dumps(res)}")
             return
 
         else:

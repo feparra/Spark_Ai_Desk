@@ -130,6 +130,43 @@ def dispatch_spark_prompt(target="all", prompt="", port=DEFAULT_PORT):
         print(f"⚠️ Error dispatching prompt to Spark: {e}", file=sys.stderr)
         return None
 
+def chat_create_session(agent="spark", title="New Conversation", port=DEFAULT_PORT):
+    """Creates a new chat session in the Spark messaging center."""
+    url = f"http://localhost:{port}/api/chat/session"
+    payload = {"agent": agent, "title": title}
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"⚠️ Error creating chat session: {e}", file=sys.stderr)
+        return None
+
+def chat_reply(session_id, content, agent="spark", port=DEFAULT_PORT):
+    """Sends an agent reply to a chat session."""
+    url = f"http://localhost:{port}/api/chat/reply"
+    payload = {"session_id": session_id, "content": content, "agent": agent}
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"⚠️ Error sending chat reply: {e}", file=sys.stderr)
+        return None
+
+def chat_history(session_id, limit=50, port=DEFAULT_PORT):
+    """Retrieves message history for a chat session."""
+    url = f"http://localhost:{port}/api/chat/messages?session={session_id}&limit={limit}"
+    req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"⚠️ Error fetching chat history: {e}", file=sys.stderr)
+        return None
+
 def main():
     parser = argparse.ArgumentParser(description="⚡ Spark AI Desktop CLI Notifier & Command Hub")
     parser.add_argument("--state", type=str, default="calm", help="State: calm, working, waiting, done, error, connecting")
@@ -142,6 +179,11 @@ def main():
     parser.add_argument("--get-prompts", action="store_true", help="Fetch pending user prompts for --agent")
     parser.add_argument("--dispatch", type=str, default="", help="Dispatch a prompt to --agent")
     parser.add_argument("--message-only", action="store_true", help="Send an informational toast (no buttons, auto-dismiss 8s)")
+    parser.add_argument("--chat-create", action="store_true", help="Create a new chat session")
+    parser.add_argument("--chat-reply", type=str, default="", help="Send a chat reply (use with --session and --content)")
+    parser.add_argument("--chat-history", action="store_true", help="Get chat message history (use with --session)")
+    parser.add_argument("--session", type=str, default="", help="Chat session ID (for --chat-reply, --chat-history)")
+    parser.add_argument("--content", type=str, default="", help="Content for --chat-reply")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Spark server port")
 
     args = parser.parse_args()
@@ -173,6 +215,45 @@ def main():
         )
         if res:
             print(f"📬 Message toast sent ({args.agent})")
+        return
+
+    if args.chat_create:
+        res = chat_create_session(agent=args.agent, title=args.title or "New Conversation", port=args.port)
+        if res and res.get("ok"):
+            session = res.get("session", {})
+            print(f"💬 Chat session created: {session.get('id', 'unknown')}")
+            print(f"   Agent: {session.get('agent', 'N/A')}")
+            print(f"   Title: {session.get('title', 'N/A')}")
+        else:
+            print(f"⚠️ Failed to create chat session: {res}")
+        return
+
+    if args.chat_reply:
+        if not args.session:
+            print("⚠️ --session is required for --chat-reply", file=sys.stderr)
+            sys.exit(1)
+        res = chat_reply(session_id=args.session, content=args.chat_reply, agent=args.agent, port=args.port)
+        if res and res.get("ok"):
+            print(f"💬 Reply sent to session {args.session}")
+        else:
+            print(f"⚠️ Failed to send reply: {res}")
+        return
+
+    if args.chat_history:
+        if not args.session:
+            print("⚠️ --session is required for --chat-history", file=sys.stderr)
+            sys.exit(1)
+        res = chat_history(session_id=args.session, port=args.port)
+        if res and res.get("ok"):
+            messages = res.get("messages", [])
+            print(f"💬 Chat history for {args.session} ({len(messages)} messages):")
+            for msg in messages:
+                role = msg.get("role", "?")
+                content = msg.get("content", "")
+                ts = msg.get("timestamp", 0)
+                print(f"  [{role}] {content[:80]}{'...' if len(content) > 80 else ''}")
+        else:
+            print(f"⚠️ Failed to get chat history: {res}")
         return
 
     if args.title or args.actions or args.wait:

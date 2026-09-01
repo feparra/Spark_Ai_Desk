@@ -1,0 +1,44 @@
+<!-- Chat Panel — injected into index.html before avatar section -->
+<div id="chatPanel" class="chat-panel hidden">
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div id="chatAgentBadge" class="chat-agent-badge">
+        <span class="dot"></span>
+        <span id="chatAgentName">Spark</span>
+      </div>
+      <span id="chatSessionTitle" class="chat-session-title">New Conversation</span>
+    </div>
+    <div class="chat-header-right">
+      <button id="btnChatNew" class="chat-btn-icon" title="New Session">➕</button>
+      <button id="btnChatSessions" class="chat-btn-icon" title="Sessions">☰</button>
+      <button id="btnChatCollapse" class="chat-btn-icon" title="Collapse">✕</button>
+    </div>
+  </div>
+
+  <div id="chatSessionsList" class="chat-sessions-list hidden">
+    <!-- Session items injected here -->
+  </div>
+
+  <div id="chatMessages" class="chat-messages">
+    <!-- Messages injected here -->
+  </div>
+
+  <div id="chatTypingIndicator" class="chat-typing-indicator hidden">
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+    <span class="typing-text">Agent is typing...</span>
+  </div>
+
+  <div class="chat-input-area">
+    <select id="chatAgentSelect" class="chat-agent-select" title="Select agent">
+      <option value="spark">⚡ Spark</option>
+      <option value="hermes">🔴 Hermes</option>
+      <option value="claude">🟣 Claude</option>
+      <option value="codex">🟢 Codex</option>
+      <option value="antigravity">🔵 Antigravity</option>
+    </select>
+    <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." autocomplete="off" />
+    <button id="btnChatSend" class="chat-send-btn" title="Send (Enter)">➤</button>
+  </div>
+</div>

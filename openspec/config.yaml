@@ -1,0 +1,92 @@
+# OpenSpec Configuration — Spark Desktop
+# Schema: spec-driven development context for SDD workflows.
+
+schema: spec-driven
+
+project:
+  name: Spark Desktop
+  version: 1.0.0
+  description: >
+    Electron-based always-on-top desktop companion for AI agents.
+    Transparent floating window with Clippy-style speech bubbles, procedural
+    audio, multi-character skins, and a local HTTP/WebSocket API on port 7890.
+
+context:
+  tech_stack:
+    - "Electron 34 (renderer/main/preload, contextIsolation: true, nodeIntegration: false)"
+    - "Node.js HTTP + WebSocket server (http + ws modules; express listed as dependency but server.js uses raw http.createServer)"
+    - "Python 3 stdlib scripts (urllib, json, argparse — no pip dependencies)"
+    - "Web Audio API for procedural audio (no audio files)"
+    - "Character GIF assets in assets/<name>/"
+  platform: "Windows 11, 8 GB RAM target"
+  no_build_step: true
+  no_transpilation: true
+  no_bundler: true
+  external_runtime:
+    description: >
+      Electron and npm dependencies live in an external runtime directory,
+      NOT in the project's node_modules. NODE_PATH must point to
+      C:/Users/FERNA/.spark_desktop_runtime/node_modules.
+    path: "C:/Users/FERNA/.spark_desktop_runtime/node_modules"
+  key_files:
+    - "src/main.js — Electron main: window, tray, IPC, GPU flags, wander/radar init"
+    - "src/server.js — HTTP + WebSocket server on :7890, all API endpoints"
+    - "src/preload.js — contextBridge, exposes sparkBridge to renderer"
+    - "src/renderer/app.js — UI logic, skins, states, speech bubbles"
+    - "src/renderer/audio.js — Procedural Web Audio"
+    - "src/radar.js — Agent Radar, scans local ports/processes every 12s"
+    - "src/wander.js — Multi-monitor wandering engine (disabled by default)"
+    - "scripts/spark_mcp_server.py — MCP JSON-RPC stdio server (6 tools)"
+    - "scripts/spark_notify.py — CLI notification sender"
+  api:
+    port: 7890
+    endpoints:
+      - "GET /api/status"
+      - "POST /api/state"
+      - "POST /api/notify"
+      - "POST /api/message"
+      - "POST /api/prompt"
+      - "GET /api/prompts"
+      - "POST /api/prompts/ack"
+      - "POST /api/skin"
+      - "POST /api/dismiss"
+      - "POST /api/wander"
+
+rules:
+  specs:
+    format: "Given/When/Then"
+    keywords: "RFC 2119 (MUST, MUST NOT, SHOULD, SHOULD NOT, MAY)"
+    description: >
+      Specs describe observable behavior of the companion's API, UI states,
+      IPC, and MCP tools. Each scenario uses Given/When/Then structure.
+      Use RFC 2119 keywords for requirement strength. Specs are
+      implementation-agnostic — they describe WHAT the system does, not HOW.
+    example: |
+      Given the companion is in "calm" state
+      When a POST /api/notify is received with message "Build complete"
+      Then the companion MUST display a speech bubble with the message
+      And the state SHOULD transition to "done"
+  design:
+    description: >
+      Design documents record architecture decisions: component boundaries,
+      data flow, IPC patterns, external runtime strategy, port management,
+      skin system, and state machine. Each design doc SHOULD include
+      context, decision, alternatives considered, and consequences.
+    components:
+      - "Electron main process (window lifecycle, tray, GPU flags, IPC)"
+      - "HTTP/WebSocket server (API, broadcast, prompt queues, sessions)"
+      - "Renderer process (UI, skins, speech bubbles, audio)"
+      - "Agent Radar (port/process scanning)"
+      - "Wander engine (window positioning)"
+      - "MCP server (JSON-RPC stdio bridge to HTTP API)"
+      - "Python CLI scripts (notification sender)"
+
+testing:
+  suite: none
+  framework: null
+  strict_tdd: false
+  description: >
+    No test suite exists. No linter, no CI. Verification is manual via
+    running the Electron app and exercising the HTTP API. Strict TDD is
+    disabled — specs describe intended behavior but do not require
+    test-first implementation.

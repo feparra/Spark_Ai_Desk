@@ -11,6 +11,13 @@ try {
   console.log('WS fallback');
 }
 
+let messageStore = null;
+try {
+  messageStore = require('./store/messageStore');
+} catch (e) {
+  console.warn('⚠️ messageStore module not available:', e.message);
+}
+
 class SparkServer {
   constructor(port = 7890) {
     this.port = port;
@@ -18,6 +25,7 @@ class SparkServer {
     this.pendingResolvers = new Map(); // id -> callback
     this.promptQueues = new Map(); // agentId -> Array<Prompt>
     this.activeSessions = new Map(); // agentId -> { lastSeen: Date, channel: 'mcp'|'http' }
+    this.onChatMessage = null; // Hook for HermesAdapter (set by main.js)
     this.currentState = {
       state: 'calm',
       agent: 'spark',
@@ -70,6 +78,40 @@ class SparkServer {
       const combined = [...specific, ...globalPrompts];
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, agent, prompts: combined }));
+      return;
+    }
+
+    // CHAT: GET /api/chat/sessions — list all chat sessions
+    if (req.method === 'GET' && pathname === '/api/chat/sessions') {
+      if (!messageStore) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'messageStore unavailable' }));
+        return;
+      }
+      const sessions = messageStore.getSessions(50);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, sessions }));
+      return;
+    }
+
+    // CHAT: GET /api/chat/messages — paginated message history
+    if (req.method === 'GET' && pathname === '/api/chat/messages') {
+      if (!messageStore) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'messageStore unavailable' }));
+        return;
+      }
+      const sessionId = parsedUrl.query.session || '';
+      const limit = parseInt(parsedUrl.query.limit || '50', 10);
+      const offset = parseInt(parsedUrl.query.offset || '0', 10);
+      if (!sessionId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'session query param required' }));
+        return;
+      }
+      const messages = messageStore.getMessages(sessionId, limit, offset);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, messages }));
       return;
     }
 
@@ -250,6 +292,153 @@ class SparkServer {
           this.updateState({ state: 'calm', agent: 'spark', message: 'Resting' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
+        // =========================================================
+        // CHAT ENDPOINTS (Phase 1 — additive, existing endpoints unchanged)
+        // =========================================================
+
+        if (pathname === '/api/chat/session') {
+          const agent = json.agent || 'spark';
+          const title = json.title || 'New Conversation';
+          if (!messageStore) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'messageStore unavailable' }));
+            return;
+          }
+          const session = messageStore.createSession(agent, title);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, session }));
+          return;
+        }
+
+        if (pathname === '/api/chat/delete-session') {
+          const { session_id } = json;
+          if (!messageStore || !session_id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'session_id required' }));
+            return;
+          }
+          messageStore.deleteSession(session_id);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
+        if (pathname === '/api/chat/send') {
+          const { session_id, role = 'user', content, agent, metadata } = json;
+          if (!messageStore || !session_id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'session_id required' }));
+            return;
+          }
+          const message = messageStore.addMessage(session_id, role, content, agent, metadata);
+          this.broadcast({ type: 'chat_message', data: message });
+          // Hook for HermesAdapter — called after broadcast, if set
+          if (typeof this.onChatMessage === 'function') {
+            try {
+              this.onChatMessage(session_id, content, agent);
+            } catch (e) {
+              console.error('onChatMessage hook error:', e);
+            }
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, message }));
+          return;
+        }
+
+        if (pathname === '/api/chat/reply') {
+          const { session_id, content, agent, metadata, stream_id } = json;
+          if (!messageStore || !session_id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'session_id required' }));
+            return;
+          }
+          const message = messageStore.addMessage(session_id, 'agent', content, agent, metadata);
+          this.broadcast({ type: 'chat_message', data: message });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, message }));
+          return;
+        }
+
+        if (pathname === '/api/chat/stream') {
+          const { session_id, stream_id, chunk, done, full_content, agent } = json;
+          if (!session_id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'session_id required' }));
+            return;
+          }
+          this.broadcast({
+            type: 'chat_stream',
+            data: { session_id, stream_id, chunk: chunk || '', done: !!done, full_content: full_content || '', agent: agent || 'agent' }
+          });
+          if (done && messageStore && full_content) {
+            messageStore.addMessage(session_id, 'agent', full_content, agent);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, streamed: true, done: !!done }));
+          return;
+        }
+
+        if (pathname === '/api/chat/typing') {
+          const { session_id, agent, is_typing } = json;
+          this.broadcast({
+            type: 'chat_typing',
+            data: { session_id, agent: agent || 'agent', is_typing: !!is_typing }
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+
+        // =========================================================
+        // HERMES WEBHOOK (Phase 2 — async event receiver)
+        // =========================================================
+
+        if (pathname === '/api/hermes-webhook') {
+          const { event, data } = json;
+          if (!event) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'event required' }));
+            return;
+          }
+          if (event === 'message_response' && data) {
+            if (messageStore && data.session_id) {
+              const message = messageStore.addMessage(
+                data.session_id,
+                data.role || 'agent',
+                data.content || '',
+                data.agent || 'hermes'
+              );
+              this.broadcast({ type: 'chat_message', data: message });
+            } else {
+              this.broadcast({ type: 'chat_message', data });
+            }
+          } else if (event === 'task_completed' && data) {
+            this.broadcast({
+              type: 'notification',
+              data: {
+                id: `webhook_${Date.now()}`,
+                agent: data.agent || 'hermes',
+                state: 'done',
+                title: data.title || 'Task Completed',
+                message: data.message || '',
+                actions: ['OK'],
+                timeout: 8,
+                sound: true,
+                timestamp: Date.now()
+              }
+            });
+          } else if (event === 'task_started' && data) {
+            this.updateState({
+              state: 'working',
+              agent: data.agent || 'hermes',
+              message: data.message || 'Working on task...'
+            });
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, received: event }));
           return;
         }
 
