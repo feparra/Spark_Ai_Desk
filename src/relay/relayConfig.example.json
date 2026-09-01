@@ -1,0 +1,9 @@
+{
+  "port": 7891,
+  "token": "REPLACE_WITH_YOUR_SECRET_TOKEN",
+  "tls": false,
+  "tlsCertPath": "",
+  "tlsKeyPath": "",
+  "maxClients": 50,
+  "pingInterval": 30000
+}

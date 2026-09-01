@@ -5,3 +5,7 @@ node_modules/
 Thumbs.db
 # Local AI runtime state
 .atl/
+# Spark config with auth token (keep example tracked)
+spark_config.json
+# Relay config with token (keep example tracked)
+src/relay/relayConfig.json

@@ -1,0 +1,26 @@
+{
+  "mode": "local",
+  "port": 7890,
+  "auth": {
+    "enabled": false,
+    "token": "REPLACE_WITH_GENERATED_TOKEN"
+  },
+  "hermes": {
+    "apiUrl": "",
+    "apiKey": "",
+    "model": "default"
+  },
+  "relay": {
+    "enabled": false,
+    "url": "",
+    "token": ""
+  },
+  "lite": {
+    "autoDetect": true,
+    "forceLite": false,
+    "ramThresholdGB": 8
+  },
+  "cors": {
+    "origin": "*"
+  }
+}
