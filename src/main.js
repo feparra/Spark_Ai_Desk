@@ -411,6 +411,16 @@ app.whenReady().then(() => {
     };
   })(sparkServer.broadcast);
 
+  // Initialize remote connectivity (auth, CORS, relay client)
+  // Merge step: integrate remote-init.js (Phase 3+4) into main.js
+  try {
+    const { initRemote } = require('./remote-init');
+    initRemote(sparkServer, mainWindow);
+    console.log('🔌 Remote connectivity initialized (auth + relay)');
+  } catch (e) {
+    console.warn('⚠️ Remote init skipped:', e.message);
+  }
+
   // Right-click context menu from avatar
   ipcMain.on('show-context-menu', (event) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
