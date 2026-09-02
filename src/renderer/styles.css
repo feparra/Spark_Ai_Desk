@@ -1,41 +1,12 @@
-/* Local fonts — fallback to system fonts if woff2 files unavailable */
-@font-face {
-  font-family: 'Outfit';
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  src: url('fonts/outfit-400.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Outfit';
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-  src: url('fonts/outfit-600.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Outfit';
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-  src: url('fonts/outfit-700.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  src: url('fonts/jetbrains-mono-400.woff2') format('woff2');
-}
-
+/* System font stack — no external font files needed */
 :root {
   --bg-bubble: rgba(18, 22, 34, 0.88);
   --border-bubble: rgba(255, 255, 255, 0.14);
   --bubble-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.2);
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
-  --font-main: 'Outfit', -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  --font-main: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Consolas', 'Courier New', monospace;
   
   /* Agent Colors */
   --agent-spark: #38bdf8;

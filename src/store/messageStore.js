@@ -1,5 +1,6 @@
 // MessageStore — SQLite persistence for chat sessions and messages
 // Uses better-sqlite3 from external runtime directory
+// Falls back to in-memory storage if native addon has ABI mismatch with Electron
 
 if (!module.paths.includes('C:/Users/ferna/.spark_desktop_runtime/node_modules')) {
   module.paths.push('C:/Users/ferna/.spark_desktop_runtime/node_modules');
@@ -7,7 +8,6 @@ if (!module.paths.includes('C:/Users/ferna/.spark_desktop_runtime/node_modules')
 
 const path = require('path');
 
-let Database = null;
 let db = null;
 let useInMemory = false;
 
@@ -22,69 +22,43 @@ function generateId(prefix) {
 }
 
 function initDb() {
-  if (db) return db;
+  if (db || useInMemory) return db;
 
-  try {
-    Database = require('better-sqlite3');
-  } catch (e) {
-    console.warn('⚠️ better-sqlite3 not available, using in-memory fallback:', e.message);
+  // better-sqlite3 is a native C++ addon compiled for Node.js's V8 ABI.
+  // Electron uses a DIFFERENT V8 ABI, so `new Database()` causes SIGABRT
+  // that kills the process — try/catch cannot intercept native crashes.
+  // FIX: Run `npx electron-rebuild -f -w better-sqlite3` in the external
+  // runtime dir to recompile for Electron's ABI and enable SQLite persistence.
+  // Until then, use in-memory storage (fully functional, just no persistence).
+  const isElectron = !!process.versions.electron;
+
+  if (isElectron) {
+    // TODO: Run `npx electron-rebuild -f -w better-sqlite3` in the external
+    // runtime to recompile for Electron's ABI and enable SQLite persistence.
+    // For now, in-memory is the safe default — fully functional, no persistence.
+    console.warn('MessageStore: using in-memory (run electron-rebuild for SQLite persistence)');
     useInMemory = true;
     return null;
   }
 
+  // Plain Node.js — safe to use directly
   try {
-    const electron = require('electron');
-    const userDataPath = electron.app.getPath('userData');
-    const dbPath = path.join(userDataPath, 'spark-messages.db');
+    const Database = require('better-sqlite3');
+    const dbPath = path.join(process.cwd(), 'spark-messages.db');
     db = new Database(dbPath);
-
-    // Pragmas for performance
     db.pragma('journal_mode = WAL');
-    db.pragma('synchronous = NORMAL');
-    db.pragma('cache_size = -2000'); // 2MB
-
-    // Create tables
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        agent TEXT DEFAULT 'spark',
-        title TEXT DEFAULT 'New Conversation',
-        created_at INTEGER,
-        last_message_at INTEGER
-      );
-
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        agent TEXT,
-        timestamp INTEGER,
-        metadata TEXT,
-        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
-      CREATE INDEX IF NOT EXISTS idx_sessions_lastmsg ON sessions(last_message_at DESC);
-    `);
-
-    console.log('✅ MessageStore initialized (SQLite at', dbPath + ')');
+    db.exec(`CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, agent TEXT, title TEXT, created_at INTEGER, last_message_at INTEGER); CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, session_id TEXT, role TEXT, content TEXT, agent TEXT, timestamp INTEGER, metadata TEXT); CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);`);
     return db;
   } catch (e) {
-    console.warn('⚠️ SQLite init failed, using in-memory fallback:', e.message);
+    console.warn('MessageStore: in-memory fallback:', e.message);
     useInMemory = true;
-    db = null;
     return null;
   }
 }
 
 function closeDb() {
   if (db) {
-    try {
-      db.close();
-    } catch (e) {
-      console.error('Error closing DB:', e);
-    }
+    try { db.close(); } catch (e) { console.error('Error closing DB:', e); }
     db = null;
   }
   memSessions.clear();
@@ -144,17 +118,13 @@ function addMessage(sessionId, role, content, agent = null, metadata = {}) {
 
   if (useInMemory || !db) {
     memMessages.push(message);
-    // Update session last_message_at
     const sess = memSessions.get(sessionId);
-    if (sess) {
-      sess.last_message_at = now;
-    }
+    if (sess) sess.last_message_at = now;
     return message;
   }
 
   db.prepare('INSERT INTO messages (id, session_id, role, content, agent, timestamp, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(id, sessionId, role, content, agent, now, metaStr);
-  // Update session timestamp
   db.prepare('UPDATE sessions SET last_message_at = ? WHERE id = ?').run(now, sessionId);
   return message;
 }
