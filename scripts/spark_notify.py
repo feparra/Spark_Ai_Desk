@@ -37,6 +37,30 @@ def set_spark_state(state="calm", agent="spark", message="", port=DEFAULT_PORT):
         print(f"⚠️ Error connecting to Spark Desktop on port {port}: {e}", file=sys.stderr)
         return None
 
+def send_spark_message(agent="hermes", title="", message="", state="calm", timeout=8, port=DEFAULT_PORT):
+    """
+    Sends an informational message to Spark that shows a toast (speech bubble)
+    without buttons. Auto-dismisses after `timeout` seconds (default 8).
+    This is for showing the user what the agent is saying — no interaction needed.
+    """
+    url = f"http://localhost:{port}/api/message"
+    payload = {
+        "agent": agent,
+        "state": state,
+        "title": title,
+        "message": message,
+        "timeout": timeout,
+        "sound": True
+    }
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"⚠️ Error sending message to Spark: {e}", file=sys.stderr)
+        return None
+
 def notify_spark(agent="spark", state="waiting", title="Attention", message="", 
                  actions=None, timeout=60, wait_for_response=False, port=DEFAULT_PORT):
     """
@@ -117,6 +141,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
     parser.add_argument("--get-prompts", action="store_true", help="Fetch pending user prompts for --agent")
     parser.add_argument("--dispatch", type=str, default="", help="Dispatch a prompt to --agent")
+    parser.add_argument("--message-only", action="store_true", help="Send an informational toast (no buttons, auto-dismiss 8s)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Spark server port")
 
     args = parser.parse_args()
@@ -135,6 +160,19 @@ def main():
         res = dispatch_spark_prompt(target=args.agent, prompt=args.dispatch, port=args.port)
         if res and res.get("ok"):
             print(f"🚀 Prompt dispatched to [{args.agent}]: {args.dispatch}")
+        return
+
+    if args.message_only:
+        res = send_spark_message(
+            agent=args.agent,
+            title=args.title or f"Mensaje de {args.agent.capitalize()}",
+            message=args.message,
+            state=args.state,
+            timeout=8,
+            port=args.port
+        )
+        if res:
+            print(f"📬 Message toast sent ({args.agent})")
         return
 
     if args.title or args.actions or args.wait:

@@ -382,6 +382,9 @@ app.whenReady().then(() => {
     }
   });
 
+  // user-prompt handler — DISABLED (Quick-Input Hub desactivado por el usuario)
+  // Para reactivar, descomentar el bloque de abajo
+  /*
   ipcMain.on('user-prompt', (event, { targetAgent, prompt }) => {
     if (sparkServer) {
       const promptId = `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
@@ -412,8 +415,11 @@ app.whenReady().then(() => {
       });
     }
   });
+  */
 
-  // Global Shortcut: Alt+Space to toggle Spark Quick-Input Command Hub
+  // Global Shortcut: Alt+Space — DISABLED (Quick-Input Hub desactivado por el usuario)
+  // Para reactivar, descomentar el bloque de abajo
+  /*
   try {
     globalShortcut.register('Alt+Space', () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -428,6 +434,7 @@ app.whenReady().then(() => {
   } catch (err) {
     console.warn('Could not register Alt+Space global shortcut:', err);
   }
+  */
 
   ipcMain.on('window-close', () => {
     if (mainWindow) mainWindow.hide();

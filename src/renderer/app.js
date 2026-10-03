@@ -190,6 +190,49 @@ function applyAgentTheme(agentName) {
 // =========================================================
 // 💬 NOTIFICATIONS & SPEECH BUBBLE
 // =========================================================
+
+// 📬 showMessageToast — Mensaje informativo sin botones, auto-dismiss 8s
+function showMessageToast(data) {
+  const {
+    id = `msg_${Date.now()}`,
+    agent = 'hermes',
+    title = '',
+    message = '',
+    timeout = 8,
+    sound = true
+  } = data;
+
+  if (bubbleTimer) clearTimeout(bubbleTimer);
+
+  // Sonido suave para mensajes informativos
+  if (sound && window.sparkAudio) {
+    window.sparkAudio.popNotification();
+  }
+
+  // Actualizar tema del agente
+  applyAgentTheme(agent);
+
+  // Contenido del toast
+  bubbleTitle.textContent = title || capitalize(agent);
+  bubbleMessage.textContent = message;
+
+  // Sin bloque de código
+  bubbleCode.style.display = 'none';
+
+  // Sin botones de acción
+  bubbleActions.innerHTML = '';
+
+  // Mostrar toast
+  speechBubbleContainer.classList.remove('hidden');
+
+  // Auto-dismiss después de `timeout` segundos (8s por defecto)
+  if (timeout > 0) {
+    bubbleTimer = setTimeout(() => {
+      hideBubble();
+    }, timeout * 1000);
+  }
+}
+
 function showNotification(notif) {
   const {
     id,
@@ -423,7 +466,10 @@ avatarSection.addEventListener('contextmenu', (e) => {
   }
 });
 
-// Single click on avatar opens Quick-Input Command Hub
+// Single click on avatar — DISABLED (Quick-Input Hub desactivado)
+// Antes abría el Quick-Input. Ahora no hace nada para evitar escritura.
+// Para reactivar, descomentar el bloque de abajo
+/*
 avatarSection.addEventListener('click', (e) => {
   if (quickInputCommandHub.classList.contains('hidden')) {
     openQuickInput();
@@ -431,6 +477,7 @@ avatarSection.addEventListener('click', (e) => {
     closeQuickInput();
   }
 });
+*/
 
 // =========================================================
 // 🔌 LISTEN TO ELECTRON IPC / BACKEND EVENTS
@@ -439,15 +486,24 @@ if (window.sparkBridge) {
   window.sparkBridge.onServerEvent((eventData) => {
     if (eventData.type === 'state_changed' || eventData.type === 'init') {
       updateState(eventData.data);
+    } else if (eventData.type === 'message') {
+      // 📬 Mensaje informativo — muestra toast sin botones con auto-dismiss
+      const data = eventData.data;
+      updateState({ state: data.state || 'calm', agent: data.agent, message: data.title || data.message });
+      showMessageToast(data);
     } else if (eventData.type === 'notification') {
       updateState(eventData.data);
       showNotification(eventData.data);
     } else if (eventData.type === 'toggle_quick_input') {
+      // DISABLED: Quick-Input Hub desactivado por el usuario
+      // Para reactivar, descomentar el bloque de abajo
+      /*
       if (quickInputCommandHub.classList.contains('hidden')) {
         openQuickInput();
       } else {
         closeQuickInput();
       }
+      */
     } else if (eventData.type === 'agent_prompt_dispatched') {
       if (window.sparkAudio) window.sparkAudio.popNotification();
       statusPillText.textContent = `⚡ Sent to ${eventData.data.targetAgent.toUpperCase()}: "${eventData.data.prompt.slice(0, 20)}..."`;

@@ -111,6 +111,38 @@ class SparkServer {
           return;
         }
 
+        if (pathname === '/api/message') {
+          // 📬 Mensaje informativo — muestra toast sin botones, auto-dismiss 8s
+          const id = json.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+          const agent = json.agent || 'hermes';
+          this.touchSession(agent, 'http_message');
+          const state = json.state || 'calm';
+          const title = json.title || '';
+          const message = json.message || '';
+          const timeout = json.timeout || 8; // 8 segundos por defecto
+          const sound = json.sound !== false;
+
+          const payload = {
+            id,
+            agent,
+            state,
+            title,
+            message,
+            actions: [], // sin botones
+            timeout,
+            sound,
+            type: 'info',
+            timestamp: Date.now()
+          };
+
+          this.broadcast({ type: 'message', data: payload });
+          this.updateState({ state, agent, message: title || message });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, id, status: 'dispatched' }));
+          return;
+        }
+
         if (pathname === '/api/notify') {
           const id = json.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
           const agent = json.agent || 'spark';
