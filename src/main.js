@@ -429,6 +429,18 @@ app.whenReady().then(() => {
     }
   });
 
+  // Click-through control: renderer tells main to ignore/accept mouse events
+  // This makes transparent areas of the window pass clicks through to apps behind
+  ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (options && options.forward) {
+        mainWindow.setIgnoreMouseEvents(ignore, { forward: true });
+      } else {
+        mainWindow.setIgnoreMouseEvents(ignore);
+      }
+    }
+  });
+
   ipcMain.on('user-action', (event, { id, action }) => {
     if (sparkServer) {
       sparkServer.handleActionSelected(id, action);

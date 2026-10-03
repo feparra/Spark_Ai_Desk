@@ -228,6 +228,62 @@ body {
   cursor: grabbing;
 }
 
+/* Chat toggle wrapper — sits right beside the avatar, compact */
+.chat-toggle-wrapper {
+  position: absolute;
+  bottom: 30px;
+  right: 6px;
+  z-index: 200;
+  -webkit-app-region: no-drag;
+}
+
+/* Chat toggle button — compact, clickable */
+.chat-toggle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  padding: 0;
+  line-height: 1;
+}
+
+.chat-toggle-btn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.chat-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+/* Notification dot on chat button */
+.chat-toggle-btn .chat-badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1px solid rgba(15, 23, 42, 0.9);
+  display: none;
+}
+
+.chat-toggle-btn .chat-badge.visible {
+  display: block;
+}
+
 .spark-avatar-container {
   position: relative;
   width: 140px;

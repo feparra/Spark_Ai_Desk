@@ -466,15 +466,121 @@ avatarSection.addEventListener('contextmenu', (e) => {
   }
 });
 
-// Single click on avatar — opens Chat Panel
-avatarSection.addEventListener('click', (e) => {
-  if (window.ChatPanel) {
-    ChatPanel.toggle();
-  }
-});
+// Chat toggle button — opens/closes chat panel (avatar stays drag-only)
+// Button is OUTSIDE avatar-section so drag region doesn't swallow clicks
+const btnChatToggle = document.getElementById('btnChatToggle');
+console.log('[Chat Toggle] button found:', !!btnChatToggle);
+if (btnChatToggle) {
+  btnChatToggle.addEventListener('click', (e) => {
+    console.log('[Chat Toggle] CLICK event fired');
+    e.stopPropagation();
+    e.preventDefault();
+    if (window.sparkAudio) window.sparkAudio.buttonClick();
+    if (window.ChatPanel && typeof ChatPanel.toggle === 'function') {
+      console.log('[Chat Toggle] toggling ChatPanel');
+      ChatPanel.toggle();
+    } else {
+      console.log('[Chat Toggle] ChatPanel not ready, toggling DOM directly');
+      const panel = document.getElementById('chatPanel');
+      if (panel) {
+        if (panel.classList.contains('hidden')) {
+          panel.classList.remove('hidden');
+        } else {
+          panel.classList.add('hidden');
+        }
+      }
+    }
+  });
+  // Prevent double-click from switching character
+  btnChatToggle.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
+}
 
 // =========================================================
-// 🔌 LISTEN TO ELECTRON IPC / BACKEND EVENTS
+// 🖱️ CLICK-THROUGH: transparent areas pass clicks to apps behind
+// =========================================================
+// We track interactive elements with mouseenter/mouseleave — more reliable
+// than document.elementFromPoint() when window is in click-through mode.
+let _interactiveCount = 0;
+
+function _setClickThrough(clickThrough) {
+  if (window.sparkBridge && window.sparkBridge.setIgnoreMouseEvents) {
+    // true  = ignore mouse events (transparent, clicks pass through to desktop)
+    // false = accept mouse events (interactive element underneath)
+    window.sparkBridge.setIgnoreMouseEvents(clickThrough, { forward: true });
+  }
+}
+
+function _enterInteractive() {
+  _interactiveCount++;
+  if (_interactiveCount === 1) {
+    _setClickThrough(false);
+  }
+}
+
+function _leaveInteractive() {
+  _interactiveCount = Math.max(0, _interactiveCount - 1);
+  if (_interactiveCount === 0) {
+    _setClickThrough(true);
+  }
+}
+
+// Wire mouseenter/leave to all interactive selectors
+function _wireInteractive(selector) {
+  document.querySelectorAll(selector).forEach((el) => {
+    el.addEventListener('mouseenter', _enterInteractive);
+    el.addEventListener('mouseleave', _leaveInteractive);
+    // Make sure element itself is clickable (not swallowed by transparent parent)
+    el.style.pointerEvents = 'auto';
+  });
+}
+
+const INTERACTIVE_SELECTORS = [
+  '#avatarSection',
+  '.chat-toggle-wrapper',
+  '.chat-toggle-btn',
+  '#chatPanel',
+  '.speech-bubble-container',
+  '.quick-input-hub',
+  '.status-pill',
+  '.btn-action',
+  '.btn-close-bubble',
+  '.btn-close-quick-input',
+  '.agent-pill',
+  '.quick-prompt-input',
+  '.btn-send-prompt',
+  '.chat-input',
+  '.chat-send-btn',
+  '.chat-icon-btn',
+  '.chat-agent-select',
+  '.chat-session-item',
+  '.chat-btn-icon'
+];
+
+function _initClickThrough() {
+  INTERACTIVE_SELECTORS.forEach(_wireInteractive);
+  // Observe DOM for dynamically added interactive elements
+  const observer = new MutationObserver(() => {
+    INTERACTIVE_SELECTORS.forEach(_wireInteractive);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Default: pass clicks through desktop (avatar will reactivate on hover)
+  _setClickThrough(true);
+}
+
+// Initialize after a brief delay so ChatPanel DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initClickThrough);
+} else {
+  _initClickThrough();
+}
+
+// =========================================================
+// 💬 CHAT TOGGLE BUTTON
+// =========================================================
 // =========================================================
 if (window.sparkBridge) {
   window.sparkBridge.onServerEvent((eventData) => {

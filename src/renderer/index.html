@@ -53,8 +53,8 @@
     </div>
   </div>
 
-  <!-- ⚡ Avatar Section (Dr. Octopus / Astro / Spark) -->
-  <div class="avatar-section" id="avatarSection" title="Click to open Chat | Double click to switch character | Drag to move">
+  <!-- ⚡ Avatar Section (Drag to move | Double-click to switch character) -->
+  <div class="avatar-section" id="avatarSection" title="Drag to move | Double-click to switch character">
     <div class="spark-avatar-container" id="sparkAvatarContainer">
       <img id="sparkImg" class="spark-media" alt="Companion Avatar">
     </div>
@@ -65,6 +65,14 @@
       <div class="status-pill-dot" id="statusPillDot"></div>
       <span class="status-pill-text" id="statusPillText">Dr. Octopus Ready</span>
     </div>
+  </div>
+
+  <!-- 💬 Chat Toggle Button — outside avatar-section so drag doesn't swallow clicks -->
+  <div class="chat-toggle-wrapper">
+    <button id="btnChatToggle" class="chat-toggle-btn" title="Open Chat">
+      💬
+      <span class="chat-badge" id="chatBadge"></span>
+    </button>
   </div>
 
   <!-- 💬 Chat Panel (Spark Messaging Center) -->
